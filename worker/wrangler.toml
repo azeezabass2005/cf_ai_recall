@@ -1,0 +1,39 @@
+name = "ranti-worker"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Durable Object — one instance per device, holds the agent's conversation state.
+[[durable_objects.bindings]]
+name = "RANTI_AGENT"
+class_name = "RantiAgent"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RantiAgent"]
+
+# D1 — persistent storage for reminders, nicknames, messages, devices.
+# Create with: wrangler d1 create ranti-db
+# Then paste the resulting database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "ranti-db"
+database_id = "24ba759b-c15f-4925-bef6-182521b6ec52"
+migrations_dir = "src/db/migrations"
+
+# Workers AI — gives the agent a free in-platform LLM (Llama 3.3). No API
+# key required; just enable Workers AI on the Cloudflare dashboard once.
+[ai]
+binding = "AI"
+
+# Optional secrets (set with `wrangler secret put <NAME>`):
+#   GOOGLE_PLACES_API_KEY — for resolve_place tool (milestone §8)
+[vars]
+ENVIRONMENT = "development"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
