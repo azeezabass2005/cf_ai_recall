@@ -37,7 +37,18 @@
 | §5 Milestone 2 — Conversation Interface (Chat) | ✅ Done — ChatScreen, ChatBubble, ChatViewModel, text/voice input modes, typing indicator |
 | §6 Milestone 3 — Voice Input & Wake Word | ✅ Done — SpeechRecognizerManager, TextToSpeechManager, WakeWordService + VoskWakeWordEngine (real "Hi Ranti" detection), BootReceiver, voice mode wired into ChatViewModel |
 | §7 Milestone 4 — Time-Based Reminders | ✅ Done — Cloudflare Agent tool-use loop with create/list/delete/update/pause/resume/resolve_time tools, timezone-aware time + recurrence parser (`worker/src/lib/time.ts`), D1-backed reminder storage, Android ReminderScheduler + ReminderReceiver with AlarmManager.setExactAndAllowWhileIdle and local recurrence rescheduling |
-| §8–§13 Milestones | ⏳ Not started |
+| §8 Milestone 5 — Location-Based Reminders | ✅ Done — Google Places Text Search (New) API in `places.ts`, `create_reminder` accepts lat/lng/place_name/place_id, Android GeofenceManager + GeofenceBroadcastReceiver + GeofencePrefs + LocationHelper, play-services-location wired, ChatViewModel registers geofences for location triggers |
+| §9 Milestone 6 — Location Disambiguation | ✅ Done — Agent `resolve_place` tool returns 0–3 results with Haversine 50m compaction, `disambiguation` field in chat response, `DisambiguationSheet` ModalBottomSheet in ChatScreen, user pick sent back as chat message |
+| §10 Milestone 7 — Location Nicknames | ✅ Done — D1-backed `save_nickname`/`get_nicknames`/`delete_nickname` handlers with UPSERT, REST `/nicknames` CRUD routes, agent system prompt with nickname flow, NicknamesScreen (list + delete), NicknameEditScreen (create with place search via `/resolve-place`), NavGraph wired |
+| §11 Milestone 8 — Reminder Management | ✅ Done — Worker REST endpoints live, RantiApi CRUD methods, RemindersScreen (3 tabs, swipe-to-delete, pull-to-refresh), ReminderDetailScreen, ReminderFormScreen (create + edit), ReminderCard component, RemindersViewModel |
+| §12 Milestone 9 — Notification & Firing | ✅ Done — Done + Snooze 10 min action buttons, ReminderActionReceiver, upgraded notification channel with alarm audio attributes and vibration |
+| §13 Settings & Preferences | ✅ Done — SettingsScreen, WakeWordSettingsScreen, VoiceSettingsScreen, NotificationSettingsScreen, LocationSettingsScreen, AboutScreen; theme pref wired to RantiTheme via DataStore; all routes wired in NavGraph |
+| §14 Worker / Agent Architecture | ✅ Done — TypeScript architecture documented (replaces Rust section); module table, agent-loop state machine, HTTP API table, D1 schema overview |
+| §15 Data Models | ✅ Done — TypeScript types in `worker/src/lib/types.ts`, typed D1 query helpers in `worker/src/db/queries.ts`, Kotlin DTOs in `app/.../network/ApiModels.kt` |
+| §16 Agent Tools & Intent Resolution | ✅ Done — 10-tool inventory, intent-to-tool mapping, system prompt rules, fuzzy matching |
+| §17 Android-Specific Behaviors | ✅ Done — Offline behavior, data privacy, and reboot handling updated to reflect Cloudflare/D1 architecture |
+| §18 Third-Party SDK Integration | ✅ Done — Removed abandoned Rust/NDK toolchain; Google Places corrected to REST API via Cloudflare Worker |
+| §19 Screen Inventory | ✅ Done — 17 routes verified against `Routes.kt`; composable names and background service class names corrected |
 
 ## Table of Contents
 
@@ -48,18 +59,18 @@
 5. [Milestone 2 — Conversation Interface (Chat)](#5-milestone-2--conversation-interface-chat) ✅
 6. [Milestone 3 — Voice Input & Wake Word](#6-milestone-3--voice-input--wake-word) ✅
 7. [Milestone 4 — Time-Based Reminders](#7-milestone-4--time-based-reminders) ✅
-8. [Milestone 5 — Location-Based Reminders](#8-milestone-5--location-based-reminders)
-9. [Milestone 6 — Location Disambiguation](#9-milestone-6--location-disambiguation)
-10. [Milestone 7 — Location Nicknames](#10-milestone-7--location-nicknames)
-11. [Milestone 8 — Reminder Management](#11-milestone-8--reminder-management)
-12. [Milestone 9 — Notification & Firing](#12-milestone-9--notification--firing)
-13. [Milestone 10 — Settings & Preferences](#13-milestone-10--settings--preferences)
-14. [Worker / Agent Architecture](#14-worker--agent-architecture)
-15. [Data Models](#15-data-models)
-16. [Agent Tools & Intent Resolution](#16-agent-tools--intent-resolution)
-17. [Android-Specific Behaviors](#17-android-specific-behaviors)
-18. [Third-Party SDK Integration](#18-third-party-sdk-integration)
-19. [Screen Inventory (Complete)](#19-screen-inventory-complete)
+8. [Milestone 5 — Location-Based Reminders](#8-milestone-5--location-based-reminders) ✅
+9. [Milestone 6 — Location Disambiguation](#9-milestone-6--location-disambiguation) ✅
+10. [Milestone 7 — Location Nicknames](#10-milestone-7--location-nicknames) ✅
+11. [Milestone 8 — Reminder Management](#11-milestone-8--reminder-management) ✅
+12. [Milestone 9 — Notification & Firing](#12-milestone-9--notification--firing) ✅
+13. [Milestone 10 — Settings & Preferences](#13-milestone-10--settings--preferences) ✅
+14. [Worker / Agent Architecture](#14-worker--agent-architecture) ✅
+15. [Data Models](#15-data-models) ✅
+16. [Agent Tools & Intent Resolution](#16-agent-tools--intent-resolution) ✅
+17. [Android-Specific Behaviors](#17-android-specific-behaviors) ✅
+18. [Third-Party SDK Integration](#18-third-party-sdk-integration) ✅
+19. [Screen Inventory (Complete)](#19-screen-inventory-complete) ✅
 
 ---
 
@@ -727,6 +738,8 @@ When the Rust core creates a time-based reminder, the Kotlin layer:
 
 ## 8. Milestone 5 — Location-Based Reminders
 
+> **Status: ✅ Done.** Google Places Text Search (New) API integrated in `worker/src/tools/places.ts`. `create_reminder` tool accepts `lat`/`lng`/`place_name`/`place_id` for location triggers. Android side: `GeofenceManager`, `GeofenceBroadcastReceiver`, `GeofencePrefs`, `LocationHelper` wired with `play-services-location`. `ChatViewModel` registers geofences for location-triggered reminders on receipt from the agent.
+
 **Goal:** Users can set reminders that trigger when they arrive at a named place.
 
 ### 8.1 Location Resolution Flow
@@ -805,6 +818,8 @@ Input: "Remind me to give Sade her book when I reach Faculty of Technology"
 
 ## 9. Milestone 6 — Location Disambiguation
 
+> **Status: ✅ Done.** Agent `resolve_place` tool returns 0–3 results with Haversine 50 m compaction. Chat response includes a `disambiguation` field when multiple places match. `DisambiguationSheet` (Material3 `ModalBottomSheet`) wired into `ChatScreen`; user pick is sent back as a chat message for the agent to consume.
+
 **Goal:** Handle ambiguous location names gracefully.
 
 ### 9.1 Disambiguation Logic (Rust Core)
@@ -843,6 +858,8 @@ When Rust core returns a disambiguation response, `ChatScreen` shows:
 ---
 
 ## 10. Milestone 7 — Location Nicknames
+
+> **Status: ✅ Done.** D1-backed `save_nickname`/`get_nicknames`/`delete_nickname` tool handlers with UPSERT logic. REST `/nicknames` CRUD routes in `worker/src/routes/nicknames.ts`. Agent system prompt includes the nickname flow. Android: `NicknamesScreen` (list + delete), `NicknameEditScreen` (create with place search via `/resolve-place`), `NicknamesViewModel`, all wired in `NavGraph`.
 
 **Goal:** Users can assign personal names to places for quick reference.
 
@@ -1122,241 +1139,244 @@ Configurable in settings:
 | Element | Detail |
 |---------|--------|
 | Version | App version + build number |
-| Rust core version | Core library version |
+| Backend | "Powered by Cloudflare Workers" |
 | Open-source licenses | Link to licenses list |
-| Privacy note | "Ranti processes your voice on-device. Your reminders are stored locally on this phone." |
+| Privacy note | "Ranti processes your voice on-device. Your reminders sync with your personal Cloudflare Worker." |
 
 ---
 
-## 14. Rust Core Architecture
+## 14. Worker / Agent Architecture
+
+> **Note:** This project uses a TypeScript backend on Cloudflare Workers (not a Rust NDK core). A Rust port is planned for a future milestone. The architecture below reflects the current TypeScript implementation.
 
 ### 14.1 Module Responsibilities
 
-| Module | Responsibility | Key Types |
-|--------|---------------|-----------|
-| `intent` | Parse natural language into structured intents | `Intent`, `Slot`, `Entity`, `TimeExpr`, `LocationExpr` |
-| `reminder` | CRUD operations, scheduling logic, status transitions | `Reminder`, `Trigger`, `ReminderStatus` |
-| `location` | Place resolution, disambiguation logic, geofence math | `PlaceResult`, `DisambiguationResult`, `GeofenceCheck` |
-| `conversation` | Multi-turn context tracking, response generation | `ConversationState`, `ConversationTurn`, `Response` |
-| `storage` | SQLite database, migrations, query layer | `Database`, `Migration` |
-| `models` | Shared data types used across modules | `ReminderId`, `NicknameId`, `Timestamp` |
+| File | Role | Key Exports |
+|------|------|-------------|
+| `src/index.ts` | Hono router — Worker entry point. Registers `/chat`, `/reminders`, `/nicknames`, `/health`. Exports `RantiAgent` so Cloudflare wires the Durable Object. | `default` (Hono app), `RantiAgent`, `Env` |
+| `src/agent.ts` | `RantiAgent` Durable Object. Holds per-device conversation history in DO storage. Runs the Workers AI tool-use loop. Normalises tool-call shapes across Workers AI runtime variants. | `RantiAgent extends Agent<Env, AgentState>` |
+| `src/tools/reminders.ts` | Reminder tool handlers and JSON schemas (`create_reminder`, `list_reminders`, `delete_reminder`, `update_reminder`, `pause_reminder`, `resume_reminder`, `resolve_time`). Single source of truth for reminder business logic — shared by the agent loop and the REST route handlers. | `reminderTools[]`, `dispatchReminderTool()`, `HandlerContext` |
+| `src/lib/time.ts` | Pure, zero-I/O timezone-aware time and recurrence parser. All parsing happens in the user's IANA zone (default `Africa/Lagos`), then converts to UTC for storage. | `parseTimeExpression()`, `parseRecurrence()`, `nextOccurrence()` |
+| `src/lib/types.ts` | Shared TypeScript types. Language-agnostic — a future Rust port maps 1:1. | `Reminder`, `Trigger`, `RecurrenceRule`, `ChatMessage`, `Nickname`, `ReminderStatus` |
+| `src/lib/auth.ts` | Anonymous device-bound auth. Extracts `X-Ranti-Device` from request headers; upserts `devices` row on every request. | `getDeviceId()`, `touchDevice()`, `MissingDeviceError` |
+| `src/routes/reminders.ts` | Hono sub-router for REST reminder CRUD. Delegates to `tools/reminders.ts` handlers — no duplicated logic. | `reminders` (Hono router) |
+| `src/routes/nicknames.ts` | Hono sub-router for nickname CRUD. | `nicknames` (Hono router) |
+| `src/routes/health.ts` | Liveness probe — returns `{ ok: true }`. | `health` (Hono router) |
+| `src/db/migrations/0001_init.sql` | D1 schema. Applied via `wrangler d1 migrations apply`. | — |
 
-### 14.2 Conversation State Machine
+### 14.2 Agent Loop State Machine
 
 ```
-                    ┌─────────┐
-                    │  Idle   │
-                    └────┬────┘
-                         │ user input
-                    ┌────▼────┐
-                    │ Parsing │
-                    └────┬────┘
-                         │
-              ┌──────────┼──────────┐
-              │          │          │
-         ┌────▼────┐ ┌──▼───┐ ┌───▼────┐
-         │Complete │ │Needs │ │Disambig│
-         │Intent   │ │Info  │ │uation  │
-         └────┬────┘ └──┬───┘ └───┬────┘
-              │         │         │
-              │    ┌────▼────┐    │
-              │    │ Waiting │    │
-              │    │ForReply │◄───┘
-              │    └────┬────┘
-              │         │ user replies
-              │    ┌────▼────┐
-              │    │Re-Parse │──── loops back if still incomplete
-              │    └────┬────┘
-              │         │
-         ┌────▼─────────▼────┐
-         │  Execute Action   │
-         │  (Create/Edit/    │
-         │   Delete Reminder)│
-         └────────┬──────────┘
-                  │
-             ┌────▼────┐
-             │Response │
-             │Generated│
-             └────┬────┘
-                  │
-             ┌────▼────┐
-             │  Idle   │
-             └─────────┘
+┌─────────┐
+│  Idle   │ ← Waiting for next HTTP POST /chat
+└────┬────┘
+     │ { message, tz, input_mode }
+     │ deviceId from X-Ranti-Device header
+     ▼
+┌─────────────────────────────────┐
+│  Load DO state                  │
+│  (conversation history array)   │
+└────────────────┬────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────┐
+│  Append user turn to history    │
+│  Build system prompt with tz    │
+│  + current local time           │
+└────────────────┬────────────────┘
+                 │
+    ┌────────────▼────────────┐
+    │  Workers AI call        │  ← @cf/meta/llama-3.3-70b-instruct-fp8-fast
+    │  (history + tools)      │     with all reminderTools schemas
+    └────────────┬────────────┘
+                 │
+         ┌───────┴────────┐
+         │  tool_calls?   │
+        Yes               No
+         │                │
+         ▼                ▼
+┌────────────────┐  ┌──────────────────────┐
+│ Execute tools  │  │  Final text reply    │
+│ dispatchReminder│  │  Append to history   │
+│ Tool()         │  │  Save DO state       │
+└───────┬────────┘  │  Return response     │
+        │           └──────────────────────┘
+        │ Append tool results to history
+        └──── loop back (max 5 iterations)
 ```
 
-### 14.3 JNI Interface
+Key properties:
+- Max **5 tool iterations** per turn to prevent runaway loops.
+- History capped at **40 messages** (sliding window) to stay within context budget.
+- DO state persisted after every turn via `this.setState({ history })`.
+- `normaliseToolCall()` handles three Workers AI output shapes (flat, OpenAI-nested, stringified args).
 
-The JNI boundary is defined in `lib.rs`:
+### 14.3 Worker HTTP API
 
-```rust
-// Core function — processes any user input (text or transcribed voice)
-pub fn process_input(input: &str, context_json: &str) -> String {
-    // Returns JSON: { response_text, action, reminder?, disambiguation?, context }
-}
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/health` | None | Liveness probe |
+| `POST` | `/chat` | `X-Ranti-Device` | Run one agent turn. Body: `{ message, tz?, input_mode?, client_now? }`. Response: `{ response_text, action, reminder?, reminders?, disambiguation }` |
+| `GET` | `/reminders` | `X-Ranti-Device` | List reminders. Query: `filter=active\|recurring\|history` |
+| `POST` | `/reminders` | `X-Ranti-Device` | Create reminder from manual form (no LLM). Body same shape as `create_reminder` tool input |
+| `PATCH` | `/reminders/:id` | `X-Ranti-Device` | Update reminder fields |
+| `DELETE` | `/reminders/:id` | `X-Ranti-Device` | Delete reminder |
+| `POST` | `/reminders/:id/pause` | `X-Ranti-Device` | Pause recurring reminder |
+| `POST` | `/reminders/:id/resume` | `X-Ranti-Device` | Resume paused reminder |
+| `POST` | `/reminders/:id/snooze` | `X-Ranti-Device` | Snooze reminder. Body: `{ snooze_minutes }` |
+| `GET` | `/nicknames` | `X-Ranti-Device` | List location nicknames |
+| `POST` | `/nicknames` | `X-Ranti-Device` | Save / update nickname |
+| `DELETE` | `/nicknames/:id` | `X-Ranti-Device` | Delete nickname |
 
-// Reminder CRUD
-pub fn get_reminders(filter: &str) -> String          // filter: "active" | "recurring" | "history"
-pub fn get_reminder(id: &str) -> String                // JSON object
-pub fn delete_reminder(id: &str) -> bool
-pub fn update_reminder(id: &str, updates: &str) -> String
+Auth: `X-Ranti-Device` is a per-install UUID generated client-side on first launch, persisted in Android DataStore, and sent on every request. The Worker upserts a `devices` row on every request via `touchDevice()`. No secrets, no user accounts in the MVP.
 
-// Manual builder path — bypasses NLP, takes structured form data
-pub fn create_reminder_from_form(form_json: &str) -> String     // JSON: { id, next_fire_at, ... }
-pub fn update_reminder_from_form(id: &str, form_json: &str) -> String
+### 14.4 D1 Schema Overview
 
-// Recurrence lifecycle
-pub fn pause_reminder(id: &str) -> bool
-pub fn resume_reminder(id: &str) -> bool
+Four tables — see `src/db/migrations/0001_init.sql`. New migrations use sequential prefixes (`0002_`, …).
 
-// Recurrence helper — Kotlin asks Rust for the next fire time after firing
-pub fn compute_next_occurrence(reminder_id: &str) -> String      // ISO 8601 or empty if done
+| Table | Purpose | Key Columns |
+|-------|---------|-------------|
+| `devices` | Tracks every install that has called the worker. | `id` (UUID, PK), `first_seen_at`, `last_seen_at` |
+| `reminders` | System of record for all reminders. | `id`, `device_id` (FK→devices), `body`, `trigger_type` (`time`\|`location`), `trigger_data` (JSON), `recurrence_data` (JSON, nullable), `status`, `source`, `next_fire_at`, `snoozed_until` |
+| `messages` | Persisted conversation turns. | `id`, `device_id`, `sender` (`user`\|`ranti`), `text`, `timestamp`, `related_reminder_id`, `input_mode` |
+| `nicknames` | User-defined location aliases. | `id`, `device_id`, `nickname`, `place_name`, `place_id`, `lat`, `lng` — UNIQUE on `(device_id, nickname)` |
 
-// Nickname CRUD
-pub fn get_nicknames() -> String                       // JSON array
-pub fn save_nickname(json: &str) -> String
-pub fn update_nickname(id: &str, json: &str) -> String
-pub fn delete_nickname(id: &str) -> bool
-
-// Location (called by Kotlin, results fed back)
-pub fn resolve_location_results(results_json: &str, context_json: &str) -> String
-
-// Database
-pub fn init_database(db_path: &str) -> bool
-pub fn run_migrations() -> bool
-```
-
-All communication across the JNI boundary is JSON-serialized strings. The Kotlin side deserializes into Kotlin data classes; the Rust side uses `serde_json`.
+Indices: `idx_reminders_device`, `idx_reminders_status`, `idx_reminders_next_fire`, `idx_messages_device_time`.
 
 ---
 
 ## 15. Data Models
 
+> **Status: ✅ Done.** TypeScript types live in `worker/src/lib/types.ts`, typed D1 query helpers in `worker/src/db/queries.ts`, and Kotlin DTOs in `app/src/main/java/com/ranti/network/ApiModels.kt`. The D1 schema is in `worker/src/db/migrations/0001_init.sql`. All tool handlers (`reminders.ts`, `nicknames.ts`) and `auth.ts` delegate to `queries.ts` — no inline SQL in business-logic modules.
+
 ### 15.1 Reminder
 
-```rust
-struct Reminder {
-    id: String,                    // UUID v4
-    body: String,                  // "Check the pot"
-    trigger: Trigger,              // Time or Location
-    recurrence: Option<RecurrenceRule>,  // None = one-shot; Some = repeats
-    status: ReminderStatus,        // Pending, Fired, Dismissed, Snoozed, Paused, Expired
-    source: ReminderSource,        // How the reminder was created
-    created_at: String,            // ISO 8601
-    fired_at: Option<String>,      // ISO 8601, set when last fired
-    fire_count: u32,               // How many times this reminder has fired (>1 for recurring)
-    next_fire_at: Option<String>,  // ISO 8601, computed for recurring reminders
-    snoozed_until: Option<String>, // ISO 8601, set when snoozed
+```typescript
+// worker/src/lib/types.ts
+
+type ReminderId = string;  // UUID v4
+type DeviceId = string;    // per-install UUID from X-Ranti-Device
+type IsoTimestamp = string; // ISO 8601, always UTC
+
+type ReminderStatus =
+  | "pending"     // Awaiting trigger (one-shot or next occurrence of recurring)
+  | "fired"       // One-shot fired and acknowledged. Recurring never reaches this.
+  | "dismissed"   // User tapped "Done" on notification (one-shot)
+  | "snoozed"     // User tapped "Snooze", new fire time set
+  | "paused"      // Recurring reminder paused by user — won't fire until resumed
+  | "expired";    // Time-based reminder never acknowledged (>24h past, one-shot only)
+
+type ReminderSource =
+  | "voice"        // Created via wake-word or mic-tap voice flow
+  | "chat_text"    // Typed into the conversation input
+  | "manual_form"; // Created via the "+ New Reminder" form
+
+type Trigger =
+  | {
+      type: "time";
+      fire_at: IsoTimestamp;      // Absolute UTC time for one-shot / first occurrence
+      original_expr: string;     // "in 15 minutes" — what the user said
+    }
+  | {
+      type: "location";
+      place_name: string;        // "Faculty of Technology Lecture Theatre"
+      place_id: string | null;   // Google Places ID
+      lat: number;
+      lng: number;
+      radius_m: number;          // Default 100
+      original_expr: string;     // "Faculty of Technology"
+    };
+
+interface RecurrenceRule {
+  frequency: "daily" | "weekly" | "monthly";
+  interval: number;                         // Every N units (e.g. every 2 weeks → 2)
+  by_weekday?: Weekday[];                   // For Weekly: which days of week
+  by_month_day?: number[];                  // For Monthly: which days (1–31)
+  time_of_day: string;                      // "18:50" — local time, 24h
+  starts_on: IsoTimestamp;                  // First valid occurrence
+  ends_on?: IsoTimestamp | null;            // null = forever
+  original_expr: string;                    // "every Tuesday at 6:50pm"
 }
 
-enum Trigger {
-    Time {
-        fire_at: String,           // ISO 8601 datetime — for one-shot, the absolute time;
-                                   // for recurring, the first occurrence
-        original_expr: String,     // "in 15 minutes" — what the user said
-    },
-    Location {
-        place_name: String,        // "Faculty of Technology Lecture Theatre"
-        place_id: Option<String>,  // Google Places ID
-        lat: f64,
-        lng: f64,
-        radius_m: u32,             // Default 100
-        original_expr: String,     // "Faculty of Technology"
-    },
-}
+type Weekday = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 
-// Recurrence is only valid for Time triggers in MVP.
-// Modeled after a simplified subset of iCalendar RRULE.
-struct RecurrenceRule {
-    frequency: Frequency,                    // Daily, Weekly, Monthly
-    interval: u32,                           // Every N units (e.g. every 2 weeks → interval=2)
-    by_weekday: Option<Vec<Weekday>>,        // For Weekly: which days of week
-    by_month_day: Option<Vec<u32>>,          // For Monthly: which days (1–31)
-    time_of_day: String,                     // "18:50" — local time, 24h
-    starts_on: String,                       // ISO 8601 date — first valid occurrence
-    ends_on: Option<String>,                 // ISO 8601 date — None = forever
-    original_expr: String,                   // "every Tuesday at 6:50pm"
-}
-
-enum Frequency { Daily, Weekly, Monthly }
-
-enum Weekday { Mon, Tue, Wed, Thu, Fri, Sat, Sun }
-
-enum ReminderStatus {
-    Pending,                       // Awaiting trigger (one-shot or next occurrence of recurring)
-    Fired,                         // One-shot fired and acknowledged. Recurring never reaches this.
-    Dismissed,                     // User tapped "Done" on notification (one-shot)
-    Snoozed,                       // User tapped "Snooze", new fire time set
-    Paused,                        // Recurring reminder paused by user — won't fire until resumed
-    Expired,                       // Time-based reminder never acknowledged (>24h past, one-shot only)
-}
-
-enum ReminderSource {
-    Voice,                         // Created via wake-word or mic-tap voice flow
-    ChatText,                      // Typed into the conversation input
-    ManualForm,                    // Created via the "+ New Reminder" form
+interface Reminder {
+  id: ReminderId;
+  device_id: DeviceId;                      // Per-install device identifier
+  body: string;                             // "Check the pot"
+  trigger: Trigger;
+  recurrence: RecurrenceRule | null;        // null = one-shot
+  status: ReminderStatus;
+  source: ReminderSource;
+  created_at: IsoTimestamp;
+  fired_at: IsoTimestamp | null;            // Set when last fired
+  fire_count: number;                       // >1 for recurring
+  next_fire_at: IsoTimestamp | null;        // Computed for recurring + snoozed
+  snoozed_until: IsoTimestamp | null;       // Set when snoozed
 }
 ```
 
 ### 15.2 Chat Message
 
-```rust
-struct ChatMessage {
-    id: String,                    // UUID v4
-    sender: Sender,                // User or Ranti
-    text: String,                  // Message content
-    timestamp: String,             // ISO 8601
-    related_reminder_id: Option<String>,  // If this message created/modified a reminder
-    input_mode: InputMode,         // Text or Voice
+```typescript
+interface ChatMessage {
+  id: string;                               // UUID v4
+  device_id: DeviceId;
+  sender: "user" | "ranti";
+  text: string;
+  timestamp: IsoTimestamp;
+  related_reminder_id: ReminderId | null;   // If this message created/modified a reminder
+  input_mode: "text" | "voice";
 }
-
-enum Sender { User, Ranti }
-enum InputMode { Text, Voice }
 ```
 
 ### 15.3 Nickname
 
-```rust
-struct Nickname {
-    id: String,
-    nickname: String,              // "my hostel"
-    place_name: String,            // "Adekunle Fajuyi Hall of Residence"
-    place_id: Option<String>,
-    lat: f64,
-    lng: f64,
-    created_at: String,
-    updated_at: String,
+```typescript
+interface Nickname {
+  id: string;                               // UUID v4
+  device_id: DeviceId;
+  nickname: string;                         // "my hostel"
+  place_name: string;                       // "Adekunle Fajuyi Hall of Residence"
+  place_id: string | null;                  // Google Places ID
+  lat: number;
+  lng: number;
+  created_at: IsoTimestamp;
+  updated_at: IsoTimestamp;
 }
 ```
 
 ### 15.4 Conversation Context
 
-```rust
-struct ConversationContext {
-    state: ConversationState,
-    pending_intent: Option<PartialIntent>,   // Incomplete intent awaiting info
-    disambiguation: Option<DisambiguationState>,
-    turns: Vec<ConversationTurn>,            // Last 5 turns for context
-}
+Conversation context (chat history, pending disambiguation state) is held per-user in the `RantiAgent` Durable Object via `this.setState({ history })`. There is no D1 table for it — DO storage provides the same single-threaded, per-device isolation with zero race conditions on multi-turn flows.
 
-enum ConversationState {
-    Idle,
-    WaitingForLocationChoice,
-    WaitingForNicknameDefinition,
-    WaitingForConfirmation,
-    WaitingForTimeClairification,
+```typescript
+// worker/src/agent.ts — stored in Durable Object state
+interface AgentState {
+  history: AiMessage[];  // Sliding window, max 40 messages
 }
 ```
 
-### 15.5 SQLite Schema
+### 15.5 D1 Schema
+
+Four tables — see `worker/src/db/migrations/0001_init.sql`. New migrations use sequential prefixes (`0002_`, …). Applied via `wrangler d1 migrations apply`.
 
 ```sql
--- Reminders
-CREATE TABLE reminders (
+-- Devices — tracks every install that has called the worker
+CREATE TABLE IF NOT EXISTS devices (
+    id              TEXT PRIMARY KEY,     -- per-install UUID from X-Ranti-Device
+    first_seen_at   TEXT NOT NULL,
+    last_seen_at    TEXT NOT NULL
+);
+
+-- Reminders — system of record for all reminders
+CREATE TABLE IF NOT EXISTS reminders (
     id              TEXT PRIMARY KEY,
+    device_id       TEXT NOT NULL REFERENCES devices(id),
     body            TEXT NOT NULL,
     trigger_type    TEXT NOT NULL CHECK (trigger_type IN ('time', 'location')),
-    trigger_data    TEXT NOT NULL,          -- JSON blob for Trigger enum
-    recurrence_data TEXT,                    -- JSON blob for RecurrenceRule (NULL = one-shot)
+    trigger_data    TEXT NOT NULL,          -- JSON blob for Trigger discriminated union
+    recurrence_data TEXT,                   -- JSON blob for RecurrenceRule (NULL = one-shot)
     status          TEXT NOT NULL DEFAULT 'pending',
     source          TEXT NOT NULL CHECK (source IN ('voice', 'chat_text', 'manual_form')),
     created_at      TEXT NOT NULL,
@@ -1366,12 +1386,14 @@ CREATE TABLE reminders (
     snoozed_until   TEXT
 );
 
-CREATE INDEX idx_reminders_status ON reminders(status);
-CREATE INDEX idx_reminders_next_fire ON reminders(next_fire_at);
+CREATE INDEX IF NOT EXISTS idx_reminders_device ON reminders(device_id);
+CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status);
+CREATE INDEX IF NOT EXISTS idx_reminders_next_fire ON reminders(next_fire_at);
 
--- Chat messages
-CREATE TABLE messages (
+-- Chat messages — persisted conversation turns
+CREATE TABLE IF NOT EXISTS messages (
     id                  TEXT PRIMARY KEY,
+    device_id           TEXT NOT NULL REFERENCES devices(id),
     sender              TEXT NOT NULL CHECK (sender IN ('user', 'ranti')),
     text                TEXT NOT NULL,
     timestamp           TEXT NOT NULL,
@@ -1379,110 +1401,128 @@ CREATE TABLE messages (
     input_mode          TEXT NOT NULL CHECK (input_mode IN ('text', 'voice'))
 );
 
--- Location nicknames
-CREATE TABLE nicknames (
+CREATE INDEX IF NOT EXISTS idx_messages_device_time ON messages(device_id, timestamp);
+
+-- Location nicknames — user-defined place aliases
+CREATE TABLE IF NOT EXISTS nicknames (
     id          TEXT PRIMARY KEY,
-    nickname    TEXT NOT NULL UNIQUE,
+    device_id   TEXT NOT NULL REFERENCES devices(id),
+    nickname    TEXT NOT NULL,
     place_name  TEXT NOT NULL,
     place_id    TEXT,
     lat         REAL NOT NULL,
     lng         REAL NOT NULL,
     created_at  TEXT NOT NULL,
-    updated_at  TEXT NOT NULL
-);
-
--- Conversation context (single row, updated in place)
-CREATE TABLE conversation_context (
-    id      INTEGER PRIMARY KEY CHECK (id = 1),
-    data    TEXT NOT NULL           -- JSON blob of ConversationContext
-);
-
--- Schema version tracking
-CREATE TABLE migrations (
-    version     INTEGER PRIMARY KEY,
-    applied_at  TEXT NOT NULL
+    updated_at  TEXT NOT NULL,
+    UNIQUE(device_id, nickname)
 );
 ```
+
+### 15.6 Typed Query Helpers — `db/queries.ts`
+
+All D1 SQL lives in `worker/src/db/queries.ts`. Tool handlers and route handlers import functions from this module instead of writing raw SQL inline. Key exports:
+
+| Function | Description |
+|----------|-------------|
+| `touchDevice(db, deviceId)` | Upsert device row on every request |
+| `insertReminder(db, params)` | Insert a new reminder |
+| `selectReminderById(db, id, deviceId)` | Fetch by exact ID |
+| `selectReminderByMatch(db, matchText, deviceId)` | Fuzzy body-text match |
+| `selectReminders(db, deviceId, filter)` | List with active/recurring/history filter |
+| `updateReminderFields(db, id, deviceId, fields)` | Patch any combination of reminder fields |
+| `deleteReminder(db, id, deviceId)` | Hard delete |
+| `upsertNickname(db, params)` | Insert or update by (device_id, nickname) |
+| `selectNicknames(db, deviceId)` | List all nicknames for a device |
+| `selectNicknameByText(db, deviceId, nickname)` | Case-insensitive lookup |
+| `deleteNickname(db, id, deviceId)` | Hard delete |
+| `insertMessage(db, params)` | Persist a chat message |
+| `selectMessages(db, deviceId, limit?)` | Fetch recent messages |
 
 ---
 
-## 16. NLP & Intent Parsing
+## 16. Agent Tools & Intent Resolution
 
-### 16.1 Intent Types
+> **Status: ✅ Done.** The LLM is the primary intent-resolution path, and tools are the only way it can affect the world. This section documents the tool-calling agent implemented in `worker/src/agent.ts`.
 
-| Intent | Description | Required Slots |
-|--------|-------------|----------------|
-| `CreateReminder` | User wants to set a new reminder | `body`, `trigger` (time or location) |
-| `DeleteReminder` | User wants to cancel a reminder | `reminder_match` (fuzzy text match) |
-| `ListReminders` | User wants to see their reminders | (none) |
-| `EditReminder` | User wants to change a reminder | `reminder_match`, at least one of: `new_body`, `new_trigger` |
-| `AnswerDisambiguation` | User is responding to a location disambiguation | `selection` (text) |
-| `DefineNickname` | User is defining a location nickname | `place_name` (text) |
-| `Confirm` | User confirms a pending action | (none) — "yes", "yeah", "correct", "that's right" |
-| `Deny` | User denies/cancels a pending action | (none) — "no", "nah", "cancel", "never mind" |
-| `Greeting` | User says hi without a reminder | (none) — "hi", "hello", "hey Ranti" |
-| `Unknown` | Parser cannot determine intent | (none) — falls back to "I didn't understand that" |
+### 16.1 Tool Inventory
 
-### 16.2 Parser Strategy
+The agent has 10 tools, grouped by domain. Each tool has a name, description, and JSON schema — the LLM decides which to call based on the user's message.
 
-The parser uses a **rule-based pipeline** (no ML model in MVP) with an optional LLM fallback:
+| # | Tool | Module | Description | Introduced |
+|---|------|--------|-------------|------------|
+| 1 | `create_reminder` | `tools/reminders.ts` | Create a time-based or location-based reminder. Accepts `time_expr` (natural language) or `fire_at` (ISO 8601). For locations, accepts resolved `lat`/`lng`/`place_name`/`place_id`. | §7 |
+| 2 | `list_reminders` | `tools/reminders.ts` | List reminders with filter: `active`, `recurring`, or `history`. | §7 |
+| 3 | `delete_reminder` | `tools/reminders.ts` | Delete by exact `reminder_id` or fuzzy `match_text`. | §7 |
+| 4 | `update_reminder` | `tools/reminders.ts` | Edit body or time. Same matching as delete. | §7 |
+| 5 | `pause_reminder` | `tools/reminders.ts` | Pause a recurring reminder. | §7 |
+| 6 | `resume_reminder` | `tools/reminders.ts` | Resume a paused recurring reminder. Recomputes `next_fire_at`. | §7 |
+| 7 | `resolve_time` | `tools/reminders.ts` | Resolve a time expression to an ISO 8601 timestamp without creating a reminder. Useful for confirmation. | §7 |
+| 8 | `resolve_place` | `tools/places.ts` | Resolve a place name via Google Places Text Search (New) API. Returns 0–3 results with Haversine 50 m compaction. | §8 |
+| 9 | `save_nickname` | `tools/nicknames.ts` | UPSERT a personal place nickname (e.g. "my hostel" → resolved place). | §10 |
+| 10 | `get_nicknames` | `tools/nicknames.ts` | List all saved place nicknames for the current device. | §10 |
 
-```
-User Input
-  │
-  ├─ 1. Normalize (lowercase, trim, expand contractions)
-  │
-  ├─ 2. Check conversation context
-  │    └─ If waiting for disambiguation/nickname/confirmation → route to handler
-  │
-  ├─ 3. Pattern matching (regex + keyword rules)
-  │    ├─ "remind me to ... at/by/before [time]" → CreateReminder + TimeTrigger
-  │    ├─ "remind me to ... in [duration]" → CreateReminder + TimeTrigger
-  │    ├─ "remind me to ... when I get to/reach/arrive at [place]" → CreateReminder + LocationTrigger
-  │    ├─ "cancel/delete the ... reminder" → DeleteReminder
-  │    ├─ "what reminders do I have" → ListReminders
-  │    ├─ "change/update the ... to ..." → EditReminder
-  │    └─ greetings, thanks, etc. → Greeting
-  │
-  ├─ 4. Slot extraction
-  │    ├─ Time slot: extract time expressions, resolve to absolute datetime
-  │    ├─ Location slot: extract place name, check nicknames first
-  │    └─ Body slot: extract the action text (what to remind about)
-  │
-  ├─ 5. Validation
-  │    ├─ If required slots missing → set state to WaitingFor*, ask follow-up
-  │    ├─ If time is in the past → "That time has already passed. Did you mean tomorrow?"
-  │    └─ If all slots present → execute action
-  │
-  └─ 6. LLM fallback (if pattern matching returns Unknown AND user has internet)
-       ├─ Send input to Ranti API endpoint for LLM parsing
-       ├─ LLM returns structured intent JSON
-       └─ Use LLM result if confidence > 0.8, otherwise → Unknown response
-```
+All tools share these properties:
+- **Schemas** are in Anthropic tool_use format with Zod runtime validation.
+- **Execution** happens via `dispatchReminderTool()`, `dispatchNicknameTool()`, or `handleResolvePlace()` in the agent loop.
+- **State** is scoped to the device via the `deviceId` from the `X-Ranti-Device` header.
 
-### 16.3 Body Extraction Rules
+### 16.2 Intent Resolution via Tool Calling
 
-The "body" (what to remind the user about) is extracted by removing trigger phrases:
+Intent resolution is implicit — the LLM reads the user's message and calls the appropriate tool(s):
 
-| Input | Trigger Phrase Removed | Extracted Body |
-|-------|----------------------|----------------|
-| "Remind me to **call mum** at 7pm" | "at 7pm" | "call mum" |
-| "Remind me to **check the pot** in 15 minutes" | "in 15 minutes" | "check the pot" |
-| "Remind me to **give Sade her book** when I reach Faculty of Tech" | "when I reach Faculty of Tech" | "give Sade her book" |
-| "**Submit the GEG assignment** before 11pm" | "before 11pm" | "Submit the GEG assignment" |
+| User Intent | Tool Call(s) | Example Input |
+|-------------|-------------------|---------------|
+| Create reminder (time) | `create_reminder` | "Remind me to call mum at 7pm" |
+| Create reminder (location) | `resolve_place` → `create_reminder` | "Remind me to buy eggs when I get to Shoprite" |
+| Delete reminder | `delete_reminder` | "Cancel the Shoprite reminder" |
+| List reminders | `list_reminders` | "What reminders do I have?" |
+| Edit reminder | `update_reminder` | "Change the call mum reminder to 8pm" |
+| Pause reminder | `pause_reminder` | "Pause my Tuesday class reminder" |
+| Resume reminder | `resume_reminder` | "Resume my Tuesday class reminder" |
+| Answer disambiguation | LLM matches user pick → `create_reminder` | "Oja Oba" (after disambiguation) |
+| Define nickname | `resolve_place` → `save_nickname` | "My hostel is Fajuyi Hall" |
+| Greeting / chitchat | No tool call — LLM replies conversationally | "Hi", "Thanks" |
 
-The body is stored verbatim (with original casing) as the notification text.
+The tool-use loop runs up to **8 iterations** per turn. A single user message can trigger multiple tools (e.g. `get_nicknames` → `resolve_place` → `create_reminder`).
 
-### 16.4 Fuzzy Matching for Management
+### 16.3 System Prompt Rules
 
-When a user says "cancel the Shoprite reminder", the Rust core:
+The system prompt in `agent.ts` encodes the intent-resolution policy. Key rules:
 
-1. Extracts the search term ("Shoprite")
-2. Loads all active reminders
-3. Scores each reminder body against the search term using substring match + Levenshtein distance
-4. If exactly 1 match with score > 0.6 → confirms: "Delete 'Buy glucose biscuits when I pass Shoprite'?"
-5. If multiple matches → lists them: "I found 2 reminders mentioning that. Which one?"
-6. If 0 matches → "I don't see a reminder matching that. Say 'what are my reminders' to see them all."
+| Rule | Detail |
+|------|--------|
+| **Tools before confirmation** | The LLM must call `create_reminder` before telling the user a reminder is set. A reply without a tool call is treated as a lie. |
+| **Time delegation** | The LLM passes `time_expr` verbatim to `create_reminder` — it never computes ISO dates itself. `lib/time.ts` handles all time arithmetic server-side. |
+| **Location flow** | Always call `resolve_place` before `create_reminder` for location reminders. If multiple results, ask the user to pick (no auto-create). |
+| **Nickname flow** | When the user mentions a personal place ("my hostel"), call `get_nicknames` first. If found, skip `resolve_place`. If not found, resolve → create → offer to save nickname. |
+| **Recurrence detection** | "Every \<something\>" is recurring. Pass the whole phrase as `time_expr` — the backend's recurrence parser decides whether it's daily, weekly, or monthly. |
+| **Concise replies** | 1–2 sentences max. Confirm the specific time, place, or recurrence back to the user. |
+| **Context** | System prompt includes the user's timezone (`X-Ranti-Tz`), current local time, and input mode (`text`/`voice`). |
+
+### 16.4 Body & Time Extraction
+
+The LLM handles body/time extraction as part of its tool arguments:
+
+| User Input | LLM Tool Call |
+|------------|---------------|
+| "Remind me to **call mum** at 7pm" | `create_reminder({ body: "call mum", time_expr: "at 7pm" })` |
+| "Remind me to **check the pot** in 15 minutes" | `create_reminder({ body: "check the pot", time_expr: "in 15 minutes" })` |
+| "Remind me to **give Sade her book** when I reach Faculty of Tech" | `resolve_place({ query: "Faculty of Tech" })` → `create_reminder({ body: "give Sade her book", ... })` |
+| "**Submit the GEG assignment** before 11pm" | `create_reminder({ body: "Submit the GEG assignment", time_expr: "before 11pm" })` |
+
+The `time_expr` is processed server-side by `parseTimeExpression()` and `parseRecurrence()` in `worker/src/lib/time.ts`. The body is stored verbatim as the notification text.
+
+### 16.5 Fuzzy Matching for Management
+
+When a user says "cancel the Shoprite reminder", the LLM calls `delete_reminder({ match_text: "Shoprite" })`. The tool handler in `tools/reminders.ts`:
+
+1. Calls `selectReminderByMatch(db, "Shoprite", deviceId)` from `db/queries.ts`
+2. This runs a case-insensitive `LIKE %shoprite%` query against active reminder bodies
+3. Returns the first match ordered by `next_fire_at` ascending
+4. If found → deletes and returns the reminder
+5. If not found → returns `{ deleted: null }` and the LLM tells the user it couldn't find a match
+
+For ambiguous matches, the LLM can call `list_reminders` first, present the options to the user, then call `delete_reminder` with the exact `reminder_id` from the user's selection.
 
 ---
 
@@ -1509,7 +1549,7 @@ When a user says "cancel the Shoprite reminder", the Rust core:
 | `ACCESS_BACKGROUND_LOCATION` | Onboarding (after fine location granted) | Location reminders only work while app is open |
 | `SCHEDULE_EXACT_ALARM` | Automatically (Android 12+) | Inexact alarms used (may be delayed by minutes) |
 | `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | Onboarding | Alarms may be delayed in Doze |
-| `RECEIVE_BOOT_COMPLETED` | Manifest (no runtime prompt) | Reminders not rescheduled after reboot until app opened |
+| `RECEIVE_BOOT_COMPLETED` | Manifest (no runtime prompt) | Required to restart the wake word service on reboot. |
 | `FOREGROUND_SERVICE` | Manifest (no runtime prompt) | Required for wake word service |
 | `FOREGROUND_SERVICE_MICROPHONE` | Manifest (Android 14+) | Required for wake word foreground service |
 
@@ -1517,17 +1557,17 @@ When a user says "cancel the Shoprite reminder", the Rust core:
 
 | Scenario | Behavior |
 |----------|----------|
-| No internet + text input | Full functionality — all parsing is local in Rust core |
-| No internet + voice input | `SpeechRecognizer` uses on-device model if available; otherwise shows "Voice recognition needs internet. Type your reminder instead." |
-| No internet + location query | Google Places API unavailable. Ranti checks nickname store first. If no match: "I can't look up locations right now. Save this reminder with a time instead, or try again when you're online." |
-| No internet + notification fire | Works fully — alarms and geofences are OS-level |
+| No internet + text input | Fails gracefully ("Ranti needs an internet connection to think. Please check your network."). The LLM agent runs on Cloudflare Workers. |
+| No internet + voice input | Wake word triggers (Vosk is fully offline) and orb activates, but dictation/parsing fails without network. |
+| No internet + location query | Google Places API unavailable. Requests fail gracefully. |
+| No internet + notification fire | Works fully — alarms and geofences are handled by Android OS (`AlarmManager` / Play Services) and don't require network to trigger. |
 
 ### 17.4 Data Privacy
 
 | Aspect | Detail |
 |--------|--------|
 | Voice processing | Speech-to-text via Android's `SpeechRecognizer` (may use Google servers). No raw audio is stored by Ranti. |
-| Reminder storage | All data stored locally on device in SQLite. No cloud sync in MVP. |
+| Reminder storage | All reminders, messages, and nicknames are stored securely in Cloudflare D1. The Android app fetches state from the API. Future milestones will introduce a local cache. |
 | Location data | Current location used only for Google Places bias and geofence registration. Not tracked or stored continuously. |
 | Wake word | Vosk runs 100% on-device. No audio leaves the device for wake word detection. |
 | Analytics | None in MVP. No telemetry, no crash reporting, no usage tracking. |
@@ -1535,10 +1575,8 @@ When a user says "cancel the Shoprite reminder", the Rust core:
 ### 17.5 Device Reboot Handling
 
 1. `BootReceiver` triggers on `BOOT_COMPLETED`
-2. Reads all pending reminders from SQLite (via Rust core)
-3. Re-registers all time-based alarms with `AlarmManager`
-4. Re-registers all location-based geofences with `GeofenceManager`
-5. Restarts `WakeWordService` if wake word is enabled
+2. Restarts `WakeWordService` if the user has the wake word enabled.
+3. *Limitation*: Because data lives in D1, pending alarms and geofences are cleared by Android on reboot and are not automatically re-registered by the BootReceiver. They are re-synced from the network the next time the user opens the app.
 
 ### 17.6 App Lifecycle
 
@@ -1566,15 +1604,15 @@ When a user says "cancel the Shoprite reminder", the Rust core:
 | Permissions | `RECORD_AUDIO`, `FOREGROUND_SERVICE_MICROPHONE` |
 | License | Apache 2.0 — fully free, no API key required |
 
-### 18.2 Google Places SDK
+### 18.2 Google Places REST API (via Cloudflare)
 
 | Aspect | Detail |
 |--------|--------|
-| Package | `com.google.android.libraries.places:places` |
-| API used | `searchByText()` for location name resolution |
-| API key | Restricted to Places API, Android apps only |
+| Integration | REST API called securely via Cloudflare Worker (`worker/src/tools/places.ts`) |
+| API used | `https://places.googleapis.com/v1/places:searchText` (Text Search New) |
+| API key | Required in `GOOGLE_PLACES_API_KEY` worker secret |
 | Billing | Pay-per-use after free tier ($200/month credit) |
-| Rate limit | Handled gracefully — queue requests, show "still searching..." |
+| Rate limit | Error responses are surfaced elegantly to the user through the LLM ("API error, try again later") |
 
 ### 18.3 Google Play Services — Location & Geofencing
 
@@ -1593,73 +1631,61 @@ When a user says "cancel the Shoprite reminder", the Rust core:
 | Text-to-Speech | `android.speech.tts.TextToSpeech` — system-provided |
 | No additional cost | Uses Android built-in engines |
 
-### 18.5 Rust / NDK Toolchain
 
-| Aspect | Detail |
-|--------|--------|
-| Rust targets | `aarch64-linux-android`, `armv7-linux-androideabi`, `x86_64-linux-android` |
-| NDK version | r26+ (via `cargo-ndk`) |
-| Build | `cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 build --release` |
-| Output | `libranti.so` placed in `app/src/main/jniLibs/{abi}/` |
-| JNI | `jni` crate for Rust-side JNI bindings |
-| SQLite | `rusqlite` with `bundled` feature (bundles SQLite, no system dependency) |
-| JSON | `serde` + `serde_json` for all JNI serialization |
-| UUID | `uuid` crate with `v4` feature |
-| Fuzzy matching | `strsim` crate for Levenshtein distance |
-
----
 
 ## 19. Screen Inventory (Complete)
 
-Total: **17 screens** + 1 always-running service UI.
+> **Status: ✅ Done.** All routes match `navigation/Routes.kt` and every screen composable exists in `ui/screens/`.
+
+Total: **17 routes** across 5 screen groups + 4 background services.
 
 ### Onboarding — 4 screens
 
-| # | Route | Screen Name |
-|---|-------|-------------|
-| 1 | `onboarding/welcome` | Welcome |
-| 2 | `onboarding/permissions` | Permissions Setup |
-| 3 | `onboarding/wake-word-setup` | Wake Word Test |
-| 4 | `onboarding/ready` | Ready |
+| # | Route | Screen Name | Composable |
+|---|-------|-------------|------------|
+| 1 | `onboarding/welcome` | Welcome | `WelcomeScreen` |
+| 2 | `onboarding/permissions` | Permissions Setup | `PermissionsScreen` |
+| 3 | `onboarding/wake-word-setup` | Wake Word Test | `WakeWordSetupScreen` |
+| 4 | `onboarding/ready` | Ready | `ReadyScreen` |
 
 ### Chat — 1 screen (primary)
 
-| # | Route | Screen Name |
-|---|-------|-------------|
-| 5 | `chat/index` | Conversation (Home) |
+| # | Route | Screen Name | Composable |
+|---|-------|-------------|------------|
+| 5 | `chat/index` | Conversation (Home) | `ChatScreen` |
 
-### Reminders — 4 screens
+### Reminders — 4 routes (3 composables)
 
-| # | Route | Screen Name |
-|---|-------|-------------|
-| 6 | `reminders/index` | Reminder List (Active / Recurring / History) |
-| 7 | `reminders/detail` | Reminder Detail |
-| 8 | `reminders/new` | New Reminder Form (Manual Builder) |
-| 9 | `reminders/edit` | Edit Reminder Form |
+| # | Route | Screen Name | Composable |
+|---|-------|-------------|------------|
+| 6 | `reminders/index` | Reminder List (Active / Recurring / History) | `RemindersScreen` |
+| 7 | `reminders/detail/{id}` | Reminder Detail | `ReminderDetailScreen` |
+| 8 | `reminders/new` | New Reminder Form | `ReminderFormScreen` |
+| 9 | `reminders/edit/{id}` | Edit Reminder Form | `ReminderFormScreen` (shared) |
 
 ### Nicknames — 2 screens
 
-| # | Route | Screen Name |
-|---|-------|-------------|
-| 10 | `nicknames/index` | Saved Places |
-| 11 | `nicknames/edit` | Edit Place |
+| # | Route | Screen Name | Composable |
+|---|-------|-------------|------------|
+| 10 | `nicknames/index` | Saved Places | `NicknamesScreen` |
+| 11 | `nicknames/edit/{id}` | Edit Place | `NicknameEditScreen` |
 
 ### Settings — 6 screens
 
-| # | Route | Screen Name |
-|---|-------|-------------|
-| 12 | `settings/index` | Settings |
-| 13 | `settings/wake-word` | Wake Word Settings |
-| 14 | `settings/voice` | Voice & Speech Settings |
-| 15 | `settings/notifications` | Notification Settings |
-| 16 | `settings/location` | Location Settings |
-| 17 | `settings/about` | About Ranti |
+| # | Route | Screen Name | Composable |
+|---|-------|-------------|------------|
+| 12 | `settings/index` | Settings | `SettingsScreen` |
+| 13 | `settings/wake-word` | Wake Word Settings | `WakeWordSettingsScreen` |
+| 14 | `settings/voice` | Voice & Speech Settings | `VoiceSettingsScreen` |
+| 15 | `settings/notifications` | Notification Settings | `NotificationSettingsScreen` |
+| 16 | `settings/location` | Location Settings | `LocationSettingsScreen` |
+| 17 | `settings/about` | About Ranti | `AboutScreen` |
 
 ### Background Services (not screens, but user-visible)
 
 | # | Component | Description |
 |---|-----------|-------------|
 | — | `WakeWordService` | Foreground service with persistent notification |
-| — | `GeofenceService` | Receives geofence transition broadcasts |
-| — | `ReminderBroadcastReceiver` | Fires time-based reminder notifications |
-| — | `BootReceiver` | Reschedules reminders after device reboot |
+| — | `GeofenceBroadcastReceiver` | Receives geofence transition broadcasts |
+| — | `ReminderReceiver` | Fires time-based reminder notifications |
+| — | `BootReceiver` | Restarts the `WakeWordService` after device reboot |

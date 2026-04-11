@@ -14,6 +14,14 @@ import com.ranti.ui.screens.onboarding.WelcomeScreen
 import com.ranti.ui.screens.reminders.ReminderDetailScreen
 import com.ranti.ui.screens.reminders.ReminderFormScreen
 import com.ranti.ui.screens.reminders.RemindersScreen
+import com.ranti.ui.screens.settings.AboutScreen
+import com.ranti.ui.screens.settings.LocationSettingsScreen
+import com.ranti.ui.screens.nicknames.NicknameEditScreen
+import com.ranti.ui.screens.nicknames.NicknamesScreen
+import com.ranti.ui.screens.settings.NotificationSettingsScreen
+import com.ranti.ui.screens.settings.SettingsScreen
+import com.ranti.ui.screens.settings.VoiceSettingsScreen
+import com.ranti.ui.screens.settings.WakeWordSettingsScreen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -55,6 +63,7 @@ fun NavGraph(
             ChatScreen(
                 onOpenReminders = { navController.navigate(Routes.RemindersIndex) },
                 onCreateReminder = { navController.navigate(Routes.RemindersNew) },
+                onOpenSettings = { navController.navigate(Routes.SettingsIndex) },
                 wakeEvents = wakeEvents,
             )
         }
@@ -95,6 +104,51 @@ fun NavGraph(
                 editReminderId = id,
                 onNavigateBack = { navController.popBackStack() },
             )
+        }
+
+        // ── Settings ──────────────────────────────────────────────────────────
+        composable(Routes.SettingsIndex) {
+            SettingsScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToWakeWord = { navController.navigate(Routes.SettingsWakeWord) },
+                onNavigateToVoice = { navController.navigate(Routes.SettingsVoice) },
+                onNavigateToNotifications = { navController.navigate(Routes.SettingsNotifications) },
+                onNavigateToLocation = { navController.navigate(Routes.SettingsLocation) },
+                onNavigateToSavedPlaces = { navController.navigate(Routes.NicknamesIndex) },
+                onNavigateToAbout = { navController.navigate(Routes.SettingsAbout) },
+            )
+        }
+        composable(Routes.SettingsWakeWord) {
+            WakeWordSettingsScreen(onNavigateBack = { navController.popBackStack() })
+        }
+        composable(Routes.SettingsVoice) {
+            VoiceSettingsScreen(onNavigateBack = { navController.popBackStack() })
+        }
+        composable(Routes.SettingsNotifications) {
+            NotificationSettingsScreen(onNavigateBack = { navController.popBackStack() })
+        }
+        composable(Routes.SettingsLocation) {
+            LocationSettingsScreen(onNavigateBack = { navController.popBackStack() })
+        }
+        composable(Routes.SettingsAbout) {
+            AboutScreen(onNavigateBack = { navController.popBackStack() })
+        }
+        composable(Routes.NicknamesIndex) {
+            NicknamesScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onCreateNickname = {
+                    navController.navigate(Routes.NicknamesEdit.replace("{id}", "new"))
+                },
+                onEditNickname = { id ->
+                    navController.navigate(Routes.NicknamesEdit.replace("{id}", id))
+                },
+            )
+        }
+        composable(
+            route = Routes.NicknamesEdit,
+            arguments = listOf(navArgument("id") { type = NavType.StringType }),
+        ) {
+            NicknameEditScreen(onNavigateBack = { navController.popBackStack() })
         }
     }
 }

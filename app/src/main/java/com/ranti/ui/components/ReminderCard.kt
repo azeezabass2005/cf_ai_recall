@@ -41,8 +41,9 @@ fun ReminderCard(
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = MaterialTheme.shapes.large,
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp), // Sleek subtle shadow
     ) {
-        Column(modifier = Modifier.padding(Spacing.base)) {
+        Column(modifier = Modifier.padding(Spacing.lg)) {
             // Body text
             Text(
                 text = reminder.body,

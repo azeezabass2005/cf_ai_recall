@@ -6,48 +6,48 @@ import androidx.compose.ui.graphics.Color
 // Light values first, dark second; the picker happens in Theme.kt.
 
 // Backgrounds
-val BaseLight = Color(0xFFF4F1EB)
-val BaseDark = Color(0xFF0E0D12)
-val SurfaceLight = Color(0xFFFFFDF7)
-val SurfaceDark = Color(0xFF16141E)
+val BaseLight = Color(0xFFF9FAFB) // Sleeker off-white
+val BaseDark = Color(0xFF090A0F)  // Deep OLED-friendly dark
+val SurfaceLight = Color(0xFFFFFFFF) // Pure white
+val SurfaceDark = Color(0xFF14151C)  // Slightly elevated sleek dark
 val ElevatedLight = Color(0xFFFFFFFF)
-val ElevatedDark = Color(0xFF1E1B28)
-val InputBgLight = Color(0xFFF0EDE5)
-val InputBgDark = Color(0xFF1A1824)
-val BorderLight = Color(0xFFE0DAC9)
-val BorderDark = Color(0xFF2A2636)
-val BorderSubtleLight = Color(0xFFEAE5D6)
-val BorderSubtleDark = Color(0xFF211E2C)
+val ElevatedDark = Color(0xFF1C1D26)
+val InputBgLight = Color(0xFFF3F4F6)
+val InputBgDark = Color(0xFF1E1F29)
+val BorderLight = Color(0xFFE5E7EB)
+val BorderDark = Color(0xFF2E303E)
+val BorderSubtleLight = Color(0xFFF3F4F6)
+val BorderSubtleDark = Color(0xFF1C1D26)
 
 // Text
-val TextHiLight = Color(0xFF1A1724)
-val TextHiDark = Color(0xFFF4F1EB)
-val TextMidLight = Color(0xFF6B6380)
-val TextMidDark = Color(0xFF9B93B0)
-val TextLoLight = Color(0xFFA59DB8)
-val TextLoDark = Color(0xFF4E4760)
+val TextHiLight = Color(0xFF111827)
+val TextHiDark = Color(0xFFF9FAFB)
+val TextMidLight = Color(0xFF6B7280)
+val TextMidDark = Color(0xFF9CA3AF)
+val TextLoLight = Color(0xFF9CA3AF)
+val TextLoDark = Color(0xFF4B5563)
 
 // Brand: Indigo (primary)
-val Primary = Color(0xFF5B4CDB)
-val PrimaryDeep = Color(0xFF4A3BBF)
-val PrimarySoftLight = Color(0xFFECEAFC)
-val PrimarySoftDark = Color(0xFF1C1935)
+val Primary = Color(0xFF4F46E5) // More vibrant, premium Indigo
+val PrimaryDeep = Color(0xFF4338CA)
+val PrimarySoftLight = Color(0xFFEEF2FF)
+val PrimarySoftDark = Color(0xFF1E1B4B)
 
 // Brand: Violet (accent)
 val Accent = Color(0xFF8B5CF6)
 val AccentDeep = Color(0xFF7C3AED)
-val AccentSoftLight = Color(0xFFF0ECFF)
-val AccentSoftDark = Color(0xFF1E1538)
+val AccentSoftLight = Color(0xFFF5F3FF)
+val AccentSoftDark = Color(0xFF2E1065)
 
 // Reminder triggers
-val TimeTrigger = Color(0xFFE08A3E)
-val TimeTriggerSoftLight = Color(0xFFFDF3E7)
-val TimeTriggerSoftDark = Color(0xFF1E1610)
-val LocationTrigger = Color(0xFF2EA87A)
-val LocationTriggerSoftLight = Color(0xFFE8F8F1)
-val LocationTriggerSoftDark = Color(0xFF0E1E18)
+val TimeTrigger = Color(0xFFF59E0B) // Amber
+val TimeTriggerSoftLight = Color(0xFFFEF3C7)
+val TimeTriggerSoftDark = Color(0xFF451A03)
+val LocationTrigger = Color(0xFF10B981) // Emerald
+val LocationTriggerSoftLight = Color(0xFFD1FAE5)
+val LocationTriggerSoftDark = Color(0xFF064E3B)
 
 // Status
-val Success = Color(0xFF22C55E)
+val Success = Color(0xFF10B981)
 val Warning = Color(0xFFF59E0B)
 val ErrorRed = Color(0xFFEF4444)

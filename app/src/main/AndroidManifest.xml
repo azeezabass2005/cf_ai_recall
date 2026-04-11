@@ -68,6 +68,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- SPEC §9 — geofence transitions for location-based reminders. -->
+        <receiver
+            android:name=".location.GeofenceBroadcastReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.location.Geofence" />
+            </intent-filter>
+        </receiver>
+
         <!-- SPEC §12.2 — handles Done / Snooze notification actions. -->
         <receiver
             android:name=".reminders.ReminderActionReceiver"

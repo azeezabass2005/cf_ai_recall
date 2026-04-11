@@ -11,6 +11,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import androidx.lifecycle.viewModelScope
+import com.ranti.location.GeofenceManager
+import com.ranti.location.LocationHelper
+import com.ranti.network.DisambiguationDto
+import com.ranti.network.PlaceOption
 import com.ranti.network.RantiApi
 import com.ranti.reminders.ReminderScheduler
 import com.ranti.service.WakeWordService
@@ -176,22 +180,44 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 .map { it.response_text }
                 .getOrElse { e -> "Sorry — I couldn't reach the server.\n(${e.message})" }
 
-            // SPEC §7.3 — handle the structured reminder payload from the
-            // worker. The worker is the source of truth for parsing & D1
-            // persistence; we mirror time-based reminders into a local
-            // AlarmManager alarm so they fire even when the network is down.
+            // Handle the structured payload from the worker.
             chatResult.getOrNull()?.let { response ->
                 when (response.action) {
                     "reminder_created", "reminder_updated", "reminder_resumed" ->
-                        response.reminder?.let {
-                            if (it.trigger?.type == "time") {
-                                ReminderScheduler.schedule(getApplication(), it)
-                                showSchedulingDiagnostic(it.next_fire_at ?: it.trigger.fire_at)
+                        response.reminder?.let { reminder ->
+                            val trigger = reminder.trigger
+                            if (trigger?.type == "time") {
+                                ReminderScheduler.schedule(getApplication(), reminder)
+                                showSchedulingDiagnostic(reminder.next_fire_at ?: trigger.fire_at)
+                            } else if (trigger?.type == "location"
+                                && trigger.lat != null && trigger.lng != null
+                                && trigger.lat != 0.0 && trigger.lng != 0.0
+                            ) {
+                                // SPEC §9 — register a geofence for location reminders.
+                                GeofenceManager.register(
+                                    context = getApplication(),
+                                    reminderId = reminder.id,
+                                    body = reminder.body,
+                                    placeName = trigger.place_name ?: "this place",
+                                    lat = trigger.lat,
+                                    lng = trigger.lng,
+                                    radiusM = (trigger.radius_m ?: 100.0).toFloat(),
+                                )
                             }
                         }
                     "reminder_deleted", "reminder_paused" ->
-                        response.reminder?.let { ReminderScheduler.cancel(getApplication(), it.id) }
-                    else -> { /* noop — listing / disambiguation etc */ }
+                        response.reminder?.let {
+                            ReminderScheduler.cancel(getApplication(), it.id)
+                            // Also remove geofence if it was a location reminder
+                            if (it.trigger?.type == "location") {
+                                GeofenceManager.remove(getApplication(), it.id)
+                            }
+                        }
+                    "disambiguation_needed" ->
+                        response.disambiguation?.let { disamb ->
+                            _state.update { it.copy(disambiguation = disamb) }
+                        }
+                    else -> { /* noop — listing etc */ }
                 }
             }
 
@@ -211,8 +237,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             // SPEC §6.3 — only speak voice-mode replies.
             if (mode == InputMode.Voice) {
                 tts.speak(replyText)
-                // Hand the mic back to the wake-word service now that our
-                // recognizer is done. (TTS uses the speaker, not the mic.)
                 WakeWordService.resumeEngine(getApplication())
             }
         }
@@ -254,6 +278,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         } catch (_: Exception) {
             isoUtc
         }
+    }
+
+    /** User picked a place from the disambiguation sheet. */
+    fun onDisambiguationSelect(option: PlaceOption) {
+        _state.update { it.copy(disambiguation = null) }
+        // Send the selected place as a chat message so the LLM picks it up.
+        val text = "I meant ${option.name} at ${option.formatted_address}"
+        sendInternal(text, _state.value.inputMode)
+    }
+
+    /** User dismissed the disambiguation sheet without picking. */
+    fun onDismissDisambiguation() {
+        _state.update { it.copy(disambiguation = null) }
     }
 
     override fun onCleared() {
@@ -302,4 +339,5 @@ data class ChatState(
     val isProcessing: Boolean,
     val partialTranscript: String,
     val voiceError: String?,
+    val disambiguation: DisambiguationDto? = null,
 )

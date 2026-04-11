@@ -59,20 +59,20 @@ All color values are defined in `core/design/tokens.kt` (Kotlin) and mirrored in
 
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
-| base | `#F4F1EB` | `#0E0D12` | Page background |
-| surface | `#FFFDF7` | `#16141E` | Card, sheet, chat backgrounds |
-| elevated | `#FFFFFF` | `#1E1B28` | Modals, bottom sheets, popovers |
-| input | `#F0EDE5` | `#1A1824` | Text input field backgrounds |
-| border | `#E0DAC9` | `#2A2636` | Standard borders |
-| borderSubtle | `#EAE5D6` | `#211E2C` | Subtle dividers |
+| base | `#F9FAFB` | `#090A0F` | Page background |
+| surface | `#FFFFFF` | `#14151C` | Card, sheet, chat backgrounds |
+| elevated | `#FFFFFF` | `#1C1D26` | Modals, bottom sheets, popovers |
+| input | `#F3F4F6` | `#1E1F29` | Text input field backgrounds |
+| border | `#E5E7EB` | `#2E303E` | Standard borders |
+| borderSubtle | `#F3F4F6` | `#1C1D26` | Subtle dividers |
 
 ### Text
 
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
-| hi | `#1A1724` | `#F4F1EB` | Primary text, headings, reminder body |
-| mid | `#6B6380` | `#9B93B0` | Secondary text, labels, timestamps |
-| lo | `#A59DB8` | `#4E4760` | Muted text, hints, disabled |
+| hi | `#111827` | `#F9FAFB` | Primary text, headings, reminder body |
+| mid | `#6B7280` | `#9CA3AF` | Secondary text, labels, timestamps |
+| lo | `#9CA3AF` | `#4B5563` | Muted text, hints, disabled |
 
 ### Brand: Indigo (Primary)
 
@@ -80,10 +80,10 @@ Ranti's primary brand color. Used for the voice orb, primary actions, and active
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| primary | `#5B4CDB` | Voice orb resting state, primary CTA, links |
-| primaryDeep | `#4A3BBF` | Pressed / active state |
-| primarySoft | `#ECEAFC` | Light mode ghost backgrounds |
-| primarySoftDk | `#1C1935` | Dark mode ghost backgrounds |
+| primary | `#4F46E5` | Voice orb resting state, primary CTA, links |
+| primaryDeep | `#4338CA` | Pressed / active state |
+| primarySoft | `#EEF2FF` | Light mode ghost backgrounds |
+| primarySoftDk | `#1E1B4B` | Dark mode ghost backgrounds |
 
 ### Brand: Violet (Accent)
 
@@ -93,25 +93,25 @@ Used sparingly for active/listening states, highlights, and premium touches.
 |-------|-------|-------|
 | accent | `#8B5CF6` | Voice orb active/listening ring, accents |
 | accentDeep | `#7C3AED` | Pressed / active state |
-| accentSoft | `#F0ECFF` | Light mode accent backgrounds |
-| accentSoftDk | `#1E1538` | Dark mode accent backgrounds |
+| accentSoft | `#F5F3FF` | Light mode accent backgrounds |
+| accentSoftDk | `#2E1065` | Dark mode accent backgrounds |
 
 ### Semantic: Reminder Triggers
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| timeTrigger | `#E08A3E` | Time-based reminder icon, pills, accents |
-| timeTriggerSoft | `#FDF3E7` | Time pill background (light) |
-| timeTriggerSoftDk | `#1E1610` | Time pill background (dark) |
-| locationTrigger | `#2EA87A` | Location-based reminder icon, pills, accents |
-| locationTriggerSoft | `#E8F8F1` | Location pill background (light) |
-| locationTriggerSoftDk | `#0E1E18` | Location pill background (dark) |
+| timeTrigger | `#F59E0B` | Time-based reminder icon, pills, accents |
+| timeTriggerSoft | `#FEF3C7` | Time pill background (light) |
+| timeTriggerSoftDk | `#451A03` | Time pill background (dark) |
+| locationTrigger | `#10B981` | Location-based reminder icon, pills, accents |
+| locationTriggerSoft | `#D1FAE5` | Location pill background (light) |
+| locationTriggerSoftDk | `#064E3B` | Location pill background (dark) |
 
 ### Status
 
 | Token | Value | Usage |
 |-------|-------|-------|
-| success | `#22C55E` | Reminder delivered, confirmed |
+| success | `#10B981` | Reminder delivered, confirmed |
 | successBg | `#F0FDF4` / `#0D2018` | Success backgrounds |
 | warning | `#F59E0B` | Reminder expiring soon |
 | warningBg | `#FFFBEB` / `#201A08` | Warning backgrounds |

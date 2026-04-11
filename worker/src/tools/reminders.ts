@@ -15,6 +15,14 @@ import {
   nextOccurrence,
   type ParseContext,
 } from "../lib/time";
+import {
+  insertReminder,
+  selectReminderById,
+  selectReminderByMatch,
+  selectReminders,
+  updateReminderFields,
+  deleteReminder as deleteReminderQuery,
+} from "../db/queries";
 
 // ─── Tool schemas (Anthropic tool_use format) ───────────────────────────────
 
@@ -39,7 +47,27 @@ export const createReminderTool = {
       },
       location_query: {
         type: "string",
-        description: "For location-based reminders only — free-text place name to resolve later.",
+        description: "For location-based reminders only — free-text place name (used as original_expr). Prefer passing resolved coordinates from resolve_place.",
+      },
+      place_id: {
+        type: "string",
+        description: "Google Places place_id from a resolve_place result.",
+      },
+      place_name: {
+        type: "string",
+        description: "Human-readable place name from a resolve_place result.",
+      },
+      lat: {
+        type: "number",
+        description: "Latitude from a resolve_place result.",
+      },
+      lng: {
+        type: "number",
+        description: "Longitude from a resolve_place result.",
+      },
+      radius_m: {
+        type: "number",
+        description: "Geofence radius in metres. Default 100.",
       },
     },
     required: ["body"],
@@ -134,6 +162,11 @@ const createReminderInput = z.object({
   time_expr: z.string().optional(),
   fire_at: z.string().optional(),
   location_query: z.string().optional(),
+  place_id: z.string().optional(),
+  place_name: z.string().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  radius_m: z.number().positive().optional(),
 });
 
 const matchOrIdInput = z.object({
@@ -150,40 +183,7 @@ const listInput = z.object({
   filter: z.enum(["active", "recurring", "history"]).default("active"),
 });
 
-// ─── D1 row ↔ Reminder mapping ──────────────────────────────────────────────
-
-interface ReminderRow {
-  id: string;
-  device_id: string;
-  body: string;
-  trigger_type: "time" | "location";
-  trigger_data: string;
-  recurrence_data: string | null;
-  status: ReminderStatus;
-  source: ReminderSource;
-  created_at: string;
-  fired_at: string | null;
-  fire_count: number;
-  next_fire_at: string | null;
-  snoozed_until: string | null;
-}
-
-function rowToReminder(row: ReminderRow): Reminder {
-  return {
-    id: row.id,
-    device_id: row.device_id,
-    body: row.body,
-    trigger: JSON.parse(row.trigger_data) as Trigger,
-    recurrence: row.recurrence_data ? JSON.parse(row.recurrence_data) : null,
-    status: row.status,
-    source: row.source,
-    created_at: row.created_at,
-    fired_at: row.fired_at,
-    fire_count: row.fire_count,
-    next_fire_at: row.next_fire_at,
-    snoozed_until: row.snoozed_until,
-  };
-}
+// Row ↔ Reminder mapping and D1 queries now live in db/queries.ts.
 
 // ─── Handlers ───────────────────────────────────────────────────────────────
 
@@ -205,16 +205,29 @@ export async function handleCreateReminder(
   let nextFireAt: string | null = null;
   let note: string | undefined;
 
-  if (input.location_query) {
-    // Location reminders are milestone §8 — we persist the intent here so
-    // the list_reminders call shows them, but resolution happens later.
+  if (input.lat != null && input.lng != null && input.place_name) {
+    // Fully-resolved location trigger — coordinates from a prior resolve_place call.
+    trigger = {
+      type: "location",
+      place_name: input.place_name,
+      place_id: input.place_id ?? null,
+      lat: input.lat,
+      lng: input.lng,
+      radius_m: input.radius_m ?? 100,
+      original_expr: input.location_query ?? input.place_name,
+    };
+  } else if (input.location_query) {
+    // Fallback — LLM passed location_query without resolving first. Shouldn't
+    // happen in normal flow (system prompt mandates resolve_place first), but
+    // we keep it to avoid a hard crash. Coordinates are zeroed — the Android
+    // client won't be able to register a geofence until coordinates are real.
     trigger = {
       type: "location",
       place_name: input.location_query,
       place_id: null,
       lat: 0,
       lng: 0,
-      radius_m: 100,
+      radius_m: input.radius_m ?? 100,
       original_expr: input.location_query,
     };
   } else {
@@ -251,27 +264,16 @@ export async function handleCreateReminder(
   }
 
   const id = crypto.randomUUID();
-  const now = new Date().toISOString();
 
-  await ctx.db
-    .prepare(
-      `INSERT INTO reminders (
-         id, device_id, body, trigger_type, trigger_data, recurrence_data,
-         status, source, created_at, fired_at, fire_count, next_fire_at, snoozed_until
-       ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', ?7, ?8, NULL, 0, ?9, NULL)`,
-    )
-    .bind(
-      id,
-      ctx.deviceId,
-      input.body,
-      trigger.type,
-      JSON.stringify(trigger),
-      recurrence ? JSON.stringify(recurrence) : null,
-      ctx.source,
-      now,
-      nextFireAt,
-    )
-    .run();
+  await insertReminder(ctx.db, {
+    id,
+    deviceId: ctx.deviceId,
+    body: input.body,
+    trigger,
+    recurrence,
+    source: ctx.source,
+    nextFireAt,
+  });
 
   const reminder: Reminder = {
     id,
@@ -281,7 +283,7 @@ export async function handleCreateReminder(
     recurrence,
     status: "pending",
     source: ctx.source,
-    created_at: now,
+    created_at: new Date().toISOString(),
     fired_at: null,
     fire_count: 0,
     next_fire_at: nextFireAt,
@@ -295,22 +297,7 @@ export async function handleListReminders(
   ctx: HandlerContext,
 ): Promise<Reminder[]> {
   const { filter } = listInput.parse(rawInput ?? {});
-  let whereClause: string;
-  switch (filter) {
-    case "recurring":
-      whereClause = "device_id = ?1 AND recurrence_data IS NOT NULL AND status != 'expired'";
-      break;
-    case "history":
-      whereClause = "device_id = ?1 AND status IN ('fired', 'dismissed', 'expired')";
-      break;
-    default:
-      whereClause = "device_id = ?1 AND status IN ('pending', 'snoozed', 'paused')";
-  }
-  const { results } = await ctx.db
-    .prepare(`SELECT * FROM reminders WHERE ${whereClause} ORDER BY next_fire_at ASC LIMIT 50`)
-    .bind(ctx.deviceId)
-    .all<ReminderRow>();
-  return (results ?? []).map(rowToReminder);
+  return selectReminders(ctx.db, ctx.deviceId, filter);
 }
 
 /**
@@ -323,26 +310,10 @@ async function findReminder(
   ctx: HandlerContext,
 ): Promise<Reminder | null> {
   if (input.reminder_id) {
-    const row = await ctx.db
-      .prepare("SELECT * FROM reminders WHERE id = ?1 AND device_id = ?2")
-      .bind(input.reminder_id, ctx.deviceId)
-      .first<ReminderRow>();
-    return row ? rowToReminder(row) : null;
+    return selectReminderById(ctx.db, input.reminder_id, ctx.deviceId);
   }
   if (input.match_text) {
-    const like = `%${input.match_text.toLowerCase()}%`;
-    const row = await ctx.db
-      .prepare(
-        `SELECT * FROM reminders
-         WHERE device_id = ?1
-           AND LOWER(body) LIKE ?2
-           AND status IN ('pending', 'snoozed', 'paused')
-         ORDER BY next_fire_at ASC
-         LIMIT 1`,
-      )
-      .bind(ctx.deviceId, like)
-      .first<ReminderRow>();
-    return row ? rowToReminder(row) : null;
+    return selectReminderByMatch(ctx.db, input.match_text, ctx.deviceId);
   }
   return null;
 }
@@ -354,10 +325,7 @@ export async function handleDeleteReminder(
   const input = matchOrIdInput.parse(rawInput);
   const found = await findReminder(input, ctx);
   if (!found) return { deleted: null };
-  await ctx.db
-    .prepare("DELETE FROM reminders WHERE id = ?1 AND device_id = ?2")
-    .bind(found.id, ctx.deviceId)
-    .run();
+  await deleteReminderQuery(ctx.db, found.id, ctx.deviceId);
   return { deleted: found };
 }
 
@@ -391,21 +359,12 @@ export async function handleUpdateReminder(
     }
   }
 
-  await ctx.db
-    .prepare(
-      `UPDATE reminders
-       SET body = ?1, trigger_data = ?2, recurrence_data = ?3, next_fire_at = ?4
-       WHERE id = ?5 AND device_id = ?6`,
-    )
-    .bind(
-      newBody,
-      JSON.stringify(newTrigger),
-      newRecurrence ? JSON.stringify(newRecurrence) : null,
-      newNextFireAt,
-      found.id,
-      ctx.deviceId,
-    )
-    .run();
+  await updateReminderFields(ctx.db, found.id, ctx.deviceId, {
+    body: newBody,
+    trigger: newTrigger,
+    recurrence: newRecurrence,
+    nextFireAt: newNextFireAt,
+  });
 
   return {
     updated: {
@@ -425,10 +384,9 @@ export async function handlePauseReminder(
   const input = matchOrIdInput.parse(rawInput);
   const found = await findReminder(input, ctx);
   if (!found) return { paused: null };
-  await ctx.db
-    .prepare("UPDATE reminders SET status = 'paused' WHERE id = ?1 AND device_id = ?2")
-    .bind(found.id, ctx.deviceId)
-    .run();
+  await updateReminderFields(ctx.db, found.id, ctx.deviceId, {
+    status: "paused",
+  });
   return { paused: { ...found, status: "paused" } };
 }
 
@@ -447,12 +405,10 @@ export async function handleResumeReminder(
     nextFireAt = nextOccurrence(found.recurrence, new Date(), ctx.parseCtx.tz).toISOString();
   }
 
-  await ctx.db
-    .prepare(
-      "UPDATE reminders SET status = 'pending', next_fire_at = ?1 WHERE id = ?2 AND device_id = ?3",
-    )
-    .bind(nextFireAt, found.id, ctx.deviceId)
-    .run();
+  await updateReminderFields(ctx.db, found.id, ctx.deviceId, {
+    status: "pending",
+    nextFireAt,
+  });
 
   return { resumed: { ...found, status: "pending", next_fire_at: nextFireAt } };
 }
@@ -478,12 +434,11 @@ export async function handleSnoozeReminder(
   if (!found) return { snoozed: null };
 
   const snoozedUntil = new Date(Date.now() + input.minutes * 60_000).toISOString();
-  await ctx.db
-    .prepare(
-      "UPDATE reminders SET status = 'snoozed', snoozed_until = ?1, next_fire_at = ?1 WHERE id = ?2 AND device_id = ?3",
-    )
-    .bind(snoozedUntil, found.id, ctx.deviceId)
-    .run();
+  await updateReminderFields(ctx.db, found.id, ctx.deviceId, {
+    status: "snoozed",
+    snoozedUntil,
+    nextFireAt: snoozedUntil,
+  });
   return {
     snoozed: { ...found, status: "snoozed", snoozed_until: snoozedUntil, next_fire_at: snoozedUntil },
   };

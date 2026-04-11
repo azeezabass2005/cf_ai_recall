@@ -6,25 +6,24 @@ import {
   reminderTools,
   type HandlerContext,
 } from "./tools/reminders";
+import {
+  dispatchNicknameTool,
+  nicknameTools,
+  type NicknameHandlerContext,
+} from "./tools/nicknames";
+import {
+  resolvePlaceTool,
+  handleResolvePlace,
+  type PlaceResult,
+} from "./tools/places";
 
 /**
  * RantiAgent — one Durable Object per device id.
  *
  * Backed by **Cloudflare Workers AI** (Llama 3.3 70B instruct, fast variant).
- * No external API key — the `AI` binding is provisioned on every Worker with
- * Workers AI enabled. Free tier handles a lot of turns before rate limiting
- * kicks in, and the `-fp8-fast` flavour is tuned for low latency.
- *
- * Responsibilities:
- *   • Holds per-device conversation state in Durable Object storage so the
- *     model sees prior turns (disambiguation, follow-ups, "cancel the one I
- *     just set", …).
- *   • Runs a tool-use loop. Tools are the only way the agent can affect the
- *     world — right now that's the reminder surface in tools/reminders.ts.
- *   • Returns both a human-readable `response_text` and a structured
- *     `reminder` payload. The Android client uses the structured payload to
- *     schedule a local AlarmManager alarm so time-based reminders fire even
- *     when the network is down.
+ * Runs a tool-use loop with reminder, nickname, and place-resolution tools.
+ * Returns structured payloads so the Android client can schedule AlarmManager
+ * alarms (time reminders) and register Geofences (location reminders).
  */
 
 // Workers AI uses an OpenAI-style chat format.
@@ -49,17 +48,11 @@ interface AiToolCall {
  *   A)  { name: "create_reminder", arguments: {...} }          (flat)
  *   B)  { id, type: "function", function: { name, arguments } } (OpenAI)
  *   C)  { name, arguments: "<JSON string>" }                    (stringified args)
- *
- * If we only parse (A) — which we used to — every (B)/(C) call looks like the
- * model produced *no* tool calls, so we just echo its prose reply and never
- * actually schedule the reminder. That's exactly the "request has been
- * accepted" hallucination the user was seeing.
  */
 function normaliseToolCall(raw: unknown): AiToolCall | null {
   if (!raw || typeof raw !== "object") return null;
   const obj = raw as Record<string, unknown>;
 
-  // Shape B: OpenAI nested form.
   const fn = obj.function as Record<string, unknown> | undefined;
   const name =
     (typeof obj.name === "string" ? obj.name : undefined) ??
@@ -70,7 +63,6 @@ function normaliseToolCall(raw: unknown): AiToolCall | null {
     obj.arguments ?? (fn ? fn.arguments : undefined) ?? {};
   let args: Record<string, unknown> = {};
   if (typeof rawArgs === "string") {
-    // Shape C: stringified JSON.
     try {
       const parsed = JSON.parse(rawArgs);
       if (parsed && typeof parsed === "object") {
@@ -105,10 +97,19 @@ interface AgentState {
 interface ChatRequestBody {
   message: string;
   input_mode?: "text" | "voice";
-  /** IANA timezone from the client, e.g. "Africa/Lagos". */
   tz?: string;
-  /** Device-local wall-clock time as an ISO 8601 string, for logging. */
   client_now?: string;
+  /** User's current lat/lng for proximity bias in place resolution. */
+  user_lat?: number;
+  user_lng?: number;
+}
+
+export interface DisambiguationOption {
+  place_id: string;
+  name: string;
+  formatted_address: string;
+  lat: number;
+  lng: number;
 }
 
 interface ChatResponseBody {
@@ -120,35 +121,64 @@ interface ChatResponseBody {
     | "reminder_updated"
     | "reminder_paused"
     | "reminder_resumed"
-    | "reminders_listed";
+    | "reminders_listed"
+    | "nickname_saved"
+    | "nicknames_listed"
+    | "nickname_deleted"
+    | "disambiguation_needed";
   reminder: Reminder | null;
   reminders?: Reminder[];
-  disambiguation: null;
+  disambiguation: {
+    prompt: string;
+    options: DisambiguationOption[];
+  } | null;
 }
 
-const MAX_TOOL_ITERATIONS = 5;
+const MAX_TOOL_ITERATIONS = 8;
 const MAX_HISTORY_MESSAGES = 40;
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+
+const REMINDER_TOOL_NAMES: Set<string> = new Set(reminderTools.map((t) => t.name));
+const NICKNAME_TOOL_NAMES: Set<string> = new Set(nicknameTools.map((t) => t.name));
 
 const SYSTEM_PROMPT = `You are Ranti, a voice-first reminder assistant built for Nigerians. Your job is to help the user remember things — at specific times, on recurring schedules, or when they arrive at a place.
 
 Personality:
 - Warm, concise, and natural. Write the way a Nigerian friend would speak. One or two sentences.
-- When you set a reminder, confirm the specific time or recurrence back to the user ("Sure — I'll remind you at 3:42 PM."). This builds trust.
+- When you set a reminder, confirm the specific time, recurrence, or place back to the user. This builds trust.
 - When the user is vague ("remind me later"), ask a quick clarifying question instead of guessing.
 
 Tools you have:
+
+TIME REMINDERS:
 - create_reminder: create a new reminder. Pass the user's time phrase VERBATIM as time_expr — the backend parses it against the user's local timezone. Do NOT try to compute ISO dates yourself; you will get them wrong.
 - list_reminders, delete_reminder, update_reminder, pause_reminder, resume_reminder: manage existing ones.
 - resolve_time: if you want to double-check a phrase before creating, resolve it first.
 
-Rules:
-- CRITICAL: If the user asks you to remind them of anything at any time ("remind me...", "don't let me forget...", "when it is 3:45...", "in 10 minutes...", "every morning..."), you MUST call the create_reminder tool BEFORE replying. NEVER tell the user "done", "I'll remind you", "request accepted", or anything similar unless the create_reminder tool has actually been called and returned a result. A reply without a tool call is a LIE that breaks the user's trust.
+LOCATION REMINDERS (§8–§10):
+- resolve_place: resolve a free-text place name (e.g. "Shoprite", "Faculty of Technology") to concrete coordinates. ALWAYS call this before creating a location-based reminder — you need the lat/lng.
+- save_nickname: save a personal nickname for a place (e.g. "my hostel" → the resolved place). Call this when the user says something like "save that as my hostel" or when they use a nickname you don't recognise and you've just resolved the place.
+- get_nicknames: list the user's saved place nicknames. Call this first when the user mentions a place nickname so you can look up its coordinates.
+- delete_nickname: delete a saved place nickname.
+
+LOCATION REMINDER FLOW:
+1. User says "remind me when I get to Shoprite" → call resolve_place({ query: "Shoprite" }).
+2. If resolve_place returns exactly ONE result → call create_reminder with that result's lat, lng, place_name, place_id plus location_query.
+3. If resolve_place returns MULTIPLE results → DO NOT create the reminder yet. Instead, tell the user you found multiple matches and list them clearly (numbered). Ask them to pick one. When they pick, use that result's coordinates.
+4. If resolve_place returns ZERO results → tell the user you couldn't find that place and ask them to be more specific.
+
+NICKNAME FLOW:
+- When the user mentions a place like "my hostel", "home", "the shop" that sounds like a personal nickname, first call get_nicknames to check if it's saved.
+- If found: use its coordinates directly for create_reminder (no resolve_place needed).
+- If not found: ask the user where that is, then resolve_place → create_reminder, and offer to save the nickname for next time.
+- When the user says "save [place] as [nickname]" → call save_nickname.
+
+RULES:
+- CRITICAL: If the user asks you to remind them of anything ("remind me...", "don't let me forget...", etc.), you MUST call the appropriate tool(s) BEFORE replying. NEVER tell the user "done" or "I'll remind you" without actually calling create_reminder. A reply without a tool call is a LIE that breaks the user's trust.
 - Never invent reminders that weren't asked for.
 - Never ask for the user's timezone — it's already supplied in your context.
-- Reminders about a place ("when I get to Shoprite") take a location_query instead of a time_expr. Location reminders aren't fully wired yet — if the user asks for one, acknowledge it and say you're still learning places.
 - When the user says "every <something>", that's recurring. Pass the whole phrase as time_expr and let the backend decide.
-- Keep your final reply SHORT (1–2 sentences). No bullet lists in normal replies.
+- Keep your final reply SHORT (1–2 sentences). No bullet lists in normal replies — except when listing disambiguation options.
 - When the user just chats (no reminder ask), just reply conversationally — don't call any tool.
 
 Examples:
@@ -156,15 +186,24 @@ User: "remind me at 3:45 to greet my friend"
 → Call create_reminder({ body: "greet my friend", time_expr: "at 3:45" }). Then reply: "Got it — I'll nudge you at 3:45 to greet your friend."
 
 User: "in 10 minutes remind me to check the rice"
-→ Call create_reminder({ body: "check the rice", time_expr: "in 10 minutes" }). Then reply: "Sure — 10 minutes on the clock."`;
+→ Call create_reminder({ body: "check the rice", time_expr: "in 10 minutes" }). Then reply: "Sure — 10 minutes on the clock."
+
+User: "remind me to buy bread when I get to Shoprite"
+→ Call resolve_place({ query: "Shoprite" }). If 1 result: call create_reminder({ body: "buy bread", location_query: "Shoprite", place_name: "Shoprite Obafemi Awolowo", place_id: "...", lat: ..., lng: ... }). Reply: "I'll ping you when you're near Shoprite Obafemi Awolowo."
+
+User: "remind me when I get home to call mum"
+→ Call get_nicknames({}). If "home" found: call create_reminder with saved coords. Reply: "Done — I'll remind you when you get home."`;
 
 /**
- * Convert our Anthropic-style tool schemas to the OpenAI / Workers AI
- * function-calling format. We keep the source schemas readable and only
- * translate at the boundary.
+ * Convert our Anthropic-style tool schemas to Workers AI function-calling format.
  */
 function toWorkersAiTools(): AiFunctionTool[] {
-  return reminderTools.map((t) => ({
+  const allTools = [
+    ...reminderTools,
+    ...nicknameTools,
+    resolvePlaceTool,
+  ];
+  return allTools.map((t) => ({
     name: t.name,
     description: t.description,
     parameters: t.input_schema as unknown as Record<string, unknown>,
@@ -188,11 +227,16 @@ export class RantiAgent extends Agent<Env, AgentState> {
     const tz = body.tz || "Africa/Lagos";
     const source = body.input_mode === "voice" ? "voice" : "chat_text";
 
-    const handlerCtx: HandlerContext = {
+    const reminderCtx: HandlerContext = {
       db: this.env.DB,
       deviceId,
       source,
       parseCtx: { now: new Date().toISOString(), tz },
+    };
+
+    const nicknameCtx: NicknameHandlerContext = {
+      db: this.env.DB,
+      deviceId,
     };
 
     // Pull history out of Durable Object state and append the new turn.
@@ -215,6 +259,7 @@ export class RantiAgent extends Agent<Env, AgentState> {
     let createdReminder: Reminder | null = null;
     let listedReminders: Reminder[] | undefined;
     let confirmationNote: string | undefined;
+    let disambiguation: ChatResponseBody["disambiguation"] = null;
 
     try {
       for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
@@ -223,10 +268,6 @@ export class RantiAgent extends Agent<Env, AgentState> {
           ...history,
         ];
 
-        // Workers AI's typed schema for this model is narrower than what the
-        // runtime actually accepts (it doesn't describe nested `oneOf`
-        // schemas or the `tool_calls` shape in the response). The call is
-        // plain JSON under the hood, so we cast at the boundary.
         const completion = (await (this.env.AI as unknown as {
           run: (model: string, input: unknown) => Promise<unknown>;
         }).run(MODEL, { messages, tools })) as AiResponse;
@@ -260,44 +301,76 @@ export class RantiAgent extends Agent<Env, AgentState> {
         for (const call of toolCalls) {
           const callId = call.id ?? `call_${iter}_${call.name}`;
           try {
-            const result = await dispatchReminderTool(
-              call.name,
-              call.arguments ?? {},
-              handlerCtx,
-            );
+            let result: unknown;
 
-            if (call.name === "create_reminder") {
-              const r = result as { reminder: Reminder; note?: string };
-              createdReminder = r.reminder;
-              confirmationNote = r.note;
-              action = "reminder_created";
-            } else if (call.name === "list_reminders") {
-              listedReminders = result as Reminder[];
-              action = "reminders_listed";
-            } else if (call.name === "delete_reminder") {
-              const r = result as { deleted: Reminder | null };
-              if (r.deleted) {
-                createdReminder = r.deleted; // client uses the id to cancel alarm
-                action = "reminder_deleted";
+            if (call.name === "resolve_place") {
+              // Place resolution — inject user lat/lng bias if available.
+              const args = { ...call.arguments };
+              if (body.user_lat != null && body.user_lng != null) {
+                args.bias_lat = args.bias_lat ?? body.user_lat;
+                args.bias_lng = args.bias_lng ?? body.user_lng;
               }
-            } else if (call.name === "update_reminder") {
-              const r = result as { updated: Reminder | null };
-              if (r.updated) {
-                createdReminder = r.updated;
-                action = "reminder_updated";
+              const places = await handleResolvePlace(args, this.env.GOOGLE_PLACES_API_KEY);
+              result = { places };
+
+              // If multiple results, set disambiguation so the client can show a picker.
+              if (places.length > 1) {
+                disambiguation = {
+                  prompt: "I found a few places. Which one did you mean?",
+                  options: places.map((p) => ({
+                    place_id: p.place_id,
+                    name: p.name,
+                    formatted_address: p.formatted_address,
+                    lat: p.lat,
+                    lng: p.lng,
+                  })),
+                };
+                action = "disambiguation_needed";
               }
-            } else if (call.name === "pause_reminder") {
-              const r = result as { paused: Reminder | null };
-              if (r.paused) {
-                createdReminder = r.paused;
-                action = "reminder_paused";
+            } else if (NICKNAME_TOOL_NAMES.has(call.name)) {
+              result = await dispatchNicknameTool(call.name, call.arguments ?? {}, nicknameCtx);
+
+              if (call.name === "save_nickname") action = "nickname_saved";
+              else if (call.name === "get_nicknames") action = "nicknames_listed";
+              else if (call.name === "delete_nickname") action = "nickname_deleted";
+            } else if (REMINDER_TOOL_NAMES.has(call.name)) {
+              result = await dispatchReminderTool(call.name, call.arguments ?? {}, reminderCtx);
+
+              if (call.name === "create_reminder") {
+                const r = result as { reminder: Reminder; note?: string };
+                createdReminder = r.reminder;
+                confirmationNote = r.note;
+                action = "reminder_created";
+              } else if (call.name === "list_reminders") {
+                listedReminders = result as Reminder[];
+                action = "reminders_listed";
+              } else if (call.name === "delete_reminder") {
+                const r = result as { deleted: Reminder | null };
+                if (r.deleted) {
+                  createdReminder = r.deleted;
+                  action = "reminder_deleted";
+                }
+              } else if (call.name === "update_reminder") {
+                const r = result as { updated: Reminder | null };
+                if (r.updated) {
+                  createdReminder = r.updated;
+                  action = "reminder_updated";
+                }
+              } else if (call.name === "pause_reminder") {
+                const r = result as { paused: Reminder | null };
+                if (r.paused) {
+                  createdReminder = r.paused;
+                  action = "reminder_paused";
+                }
+              } else if (call.name === "resume_reminder") {
+                const r = result as { resumed: Reminder | null };
+                if (r.resumed) {
+                  createdReminder = r.resumed;
+                  action = "reminder_resumed";
+                }
               }
-            } else if (call.name === "resume_reminder") {
-              const r = result as { resumed: Reminder | null };
-              if (r.resumed) {
-                createdReminder = r.resumed;
-                action = "reminder_resumed";
-              }
+            } else {
+              result = { error: `Unknown tool: ${call.name}` };
             }
 
             history.push({
@@ -349,7 +422,7 @@ export class RantiAgent extends Agent<Env, AgentState> {
       action,
       reminder: createdReminder,
       reminders: listedReminders,
-      disambiguation: null,
+      disambiguation,
     } satisfies ChatResponseBody);
   }
 }
@@ -373,6 +446,12 @@ function friendlyDefaultFor(
       return "Back on.";
     case "reminders_listed":
       return "Here's what you have coming up.";
+    case "nickname_saved":
+      return "Saved that nickname.";
+    case "nickname_deleted":
+      return "Deleted that nickname.";
+    case "disambiguation_needed":
+      return "I found a few places — which one did you mean?";
     default:
       return "Got it.";
   }

@@ -14,6 +14,7 @@ import { getAgentByName, type AgentNamespace } from "agents";
 import { health } from "./routes/health";
 import { reminders } from "./routes/reminders";
 import { nicknames } from "./routes/nicknames";
+import { places } from "./routes/places";
 import { getDeviceId, touchDevice, MissingDeviceError } from "./lib/auth";
 import { RantiAgent } from "./agent";
 
@@ -40,6 +41,7 @@ app.onError((err, c) => {
 app.route("/health", health);
 app.route("/reminders", reminders);
 app.route("/nicknames", nicknames);
+app.route("/resolve-place", places);
 
 // /chat — the only endpoint that runs the agent.
 // We forward the raw request to the per-device Durable Object so it can
@@ -56,7 +58,7 @@ app.get("/", (c) =>
   c.json({
     service: "ranti-worker",
     docs: "see SPEC.md §1 and §14",
-    endpoints: ["/health", "/chat", "/reminders", "/nicknames"],
+    endpoints: ["/health", "/chat", "/reminders", "/nicknames", "/resolve-place"],
   }),
 );
 

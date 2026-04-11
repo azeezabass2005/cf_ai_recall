@@ -74,7 +74,7 @@ fun VoiceOrb(
         // Outer glow
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(coreColor.copy(alpha = glow), Color.Transparent),
+                colors = listOf(coreColor.copy(alpha = glow), coreColor.copy(alpha = glow * 0.3f), Color.Transparent),
                 center = center,
                 radius = r * 1.3f * scale,
             ),
@@ -84,7 +84,7 @@ fun VoiceOrb(
         // Core orb
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(coreColor, coreColor.copy(alpha = 0.7f)),
+                colors = listOf(coreColor.copy(alpha = 0.85f), coreColor),
                 center = center,
                 radius = r * 0.7f * scale,
             ),

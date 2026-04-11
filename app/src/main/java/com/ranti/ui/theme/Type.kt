@@ -19,14 +19,14 @@ val RantiTypography = Typography(
         fontFamily = FF, fontWeight = FontWeight.ExtraBold,
         fontSize = 36.sp, lineHeight = 44.sp,
     ),
-    // h1: 28/36 Bold
+    // h1: 28/36 SemiBold - softer title
     headlineLarge = TextStyle(
-        fontFamily = FF, fontWeight = FontWeight.Bold,
+        fontFamily = FF, fontWeight = FontWeight.SemiBold,
         fontSize = 28.sp, lineHeight = 36.sp,
     ),
-    // h2: 24/32 Bold
+    // h2: 24/32 SemiBold
     headlineMedium = TextStyle(
-        fontFamily = FF, fontWeight = FontWeight.Bold,
+        fontFamily = FF, fontWeight = FontWeight.SemiBold,
         fontSize = 24.sp, lineHeight = 32.sp,
     ),
     // h3: 20/28 SemiBold — card titles, dialog headers

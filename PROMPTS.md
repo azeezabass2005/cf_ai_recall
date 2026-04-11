@@ -2,6 +2,8 @@
 
 A record of the prompts that drove each phase of this build, from blank repository to a fully working voice-first reminder app. Written in plain English, with enough context that each prompt stands on its own.
 
+> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent. The raw intent was human; the final wording was LLM-assisted.
+
 ---
 
 ## Phase 1 — Architecture, Navigation & Project Scaffold (§1 · §2 · §3)
@@ -163,3 +165,219 @@ Wire all four screens into `NavGraph.kt` and connect the chat screen's top-bar b
 **Milestone 9 — Notification & Firing Upgrade:**
 
 Upgrade `ReminderReceiver.showNotification()` to include two action buttons on every reminder notification: **"Done"** and **"Snooze 10 min"**. Create a new `ReminderActionReceiver` `BroadcastReceiver` that handles both actions — Done dismisses the notification and cancels the alarm; Snooze reschedules the alarm for now plus 10 minutes, dismisses the current notification, and shows a brief "Snoozed until HH:MM" notification that auto-dismisses after 5 seconds. Register the new receiver in `AndroidManifest.xml`. Upgrade the notification channel to use alarm-category audio attributes and enable vibration.
+
+---
+
+## Phase 8 — Settings & Preferences + Worker Architecture Docs (§13 · §14)
+
+> **Covers:** Milestone 10 — all settings screens; §14 rewritten from Rust to TypeScript Worker architecture
+
+---
+
+Implement the full Settings & Preferences milestone (§13) and replace the now-outdated §14 Rust Core Architecture section with the real TypeScript Worker architecture documentation.
+
+**§13 — Settings screens:**
+
+Extend `OnboardingPrefs.kt` (the existing `ranti_onboarding` DataStore) with 11 new preference keys covering voice settings (TTS enabled, speed, language), notification settings (sound, vibration, heads-up, snooze duration, re-notify, re-notify interval), location settings (geofence radius), and theme (light/dark/system). Add a reactive `themeModeFlow()` returning `Flow<String>` so `MainActivity` can collect it and pass `darkTheme` to `RantiTheme` without restarting the activity.
+
+Build six screens in `ui/screens/settings/`:
+
+- **SettingsScreen** — menu with 8 rows: Wake Word, Voice & Speech, Notifications, Location, Saved Places (navigates to a placeholder since Nicknames are a later milestone), Chat History (confirmation dialog, local-only clear), Theme (inline Light/Dark/System cycle, no sub-screen), and About. Uses a shared `internal SettingsRow` composable.
+- **WakeWordSettingsScreen** — enable/disable toggle (calls `WakeWordService.start/stop`), Low/Med/High sensitivity slider (3-position, `steps=1`), and a live test section using `VoskWakeWordEngine` (same logic as the onboarding screen) — only visible when the toggle is on.
+- **VoiceSettingsScreen** — TTS enabled toggle, speed slider (Slow/Normal/Fast, `steps=1`), and a `SingleChoiceSegmentedButtonRow` for language (English Nigeria / US / UK).
+- **NotificationSettingsScreen** — Sound, Vibration, Heads-up toggles; snooze duration segmented buttons (5/10/15/30 min); Re-notify toggle; and an `AnimatedVisibility` interval picker (5/10/15 min) that appears only when Re-notify is on.
+- **LocationSettingsScreen** — live GPS status read from `LocationManager` (green GpsFixed / red GpsOff icon + "Open settings" button when off), geofence radius using an index-as-float slider (50/100/200/500m via `valueRange=0f..3f, steps=2`), and a hardcoded "0 / 100 active geofences" info row.
+- **AboutScreen** — app version from `BuildConfig`, "Powered by Cloudflare Workers", open-source licenses placeholder, and a privacy card.
+
+Wire all settings routes in `NavGraph.kt` and remove the `showSnackbar("Settings — milestone §13")` stub from `ChatScreen`'s settings icon — the button now navigates directly.
+
+**§14 — SPEC rewrite:**
+
+Replace the Rust JNI/module section entirely with four subsections: Module Responsibilities table (all TypeScript files in `worker/src/`), Agent Loop State Machine (ASCII diagram: idle → load DO state → append user turn → Workers AI call → tool loop max 5 iterations → save DO state → return), Worker HTTP API table (all 12 endpoints), and D1 Schema Overview (4 tables: devices, reminders, messages, nicknames with indices).
+
+---
+
+## Phase 9 — Location-Based Reminders (§8)
+
+> **Covers:** Milestone 5 — Google Places integration, geofence registration, location-triggered reminders
+
+---
+
+Implement end-to-end location-based reminders for Ranti — from the user saying "remind me to buy eggs when I get to Shoprite" to the phone notification firing when they arrive.
+
+**Worker side:**
+
+Create a `resolve_place` tool in `worker/src/tools/places.ts` that calls the Google Places Text Search (New) API with the user's query and a location bias based on their current coordinates (sent via the request). Return up to 5 results with name, formatted address, lat/lng, and place_id. Extend `create_reminder` to accept optional `lat`, `lng`, `place_name`, and `place_id` fields — when these are present, the reminder's trigger type is Location instead of Time.
+
+**Android side:**
+
+Build `GeofenceManager` — wraps the Google Play Services `GeofencingClient`. Expose `registerGeofence(reminderId, lat, lng, radiusMetres)` and `unregisterGeofence(reminderId)`. Use `GEOFENCE_TRANSITION_ENTER` with a default 100 m radius and 30-second responsiveness.
+
+Build `GeofenceBroadcastReceiver` — receives geofence transition events, looks up the reminder by ID, fires a notification via `NotificationHelper`, and removes the geofence.
+
+Build `GeofencePrefs` for tracking registered geofence IDs locally, and `LocationHelper` for fetching the user's last known location to send as bias with chat requests.
+
+Wire `play-services-location` in Gradle. When `ChatViewModel` receives a reminder with a location trigger from the agent, it calls `GeofenceManager.registerGeofence` to set it up on-device.
+
+---
+
+## Phase 10 — Location Disambiguation (§9)
+
+> **Covers:** Milestone 6 — multi-result place resolution, disambiguation UI, Haversine compaction
+
+---
+
+Implement the location disambiguation flow for Ranti.
+
+**Worker side:**
+
+Update the `resolve_place` tool to apply Haversine distance compaction: when all returned places are within 50 m of each other, auto-select the highest-prominence result. When results are spread apart, return the top 3 as disambiguation options. Add a `disambiguation` field to the chat response payload containing the place options (name, address, lat, lng, place_id) when the agent cannot auto-resolve.
+
+When the agent encounters 0 results, it should respond conversationally asking the user to be more specific. When it encounters 2+ spread-apart results, it should ask the user to pick one and include the disambiguation data for the Android UI.
+
+**Android side:**
+
+Build `DisambiguationSheet` — a Material3 `ModalBottomSheet` that shows the disambiguation options as tappable cards (place name + address). When the user taps an option, the selection is sent back as a regular chat message (e.g. "Oja Oba") so the agent can match it and complete the reminder. The user can also type or speak their choice instead of tapping.
+
+Wire `DisambiguationSheet` into `ChatScreen` — it appears whenever `ChatViewModel` receives a response with a non-null `disambiguation` field.
+
+---
+
+## Phase 11 — Location Nicknames (§10)
+
+> **Covers:** Milestone 7 — nickname CRUD, agent nickname flow, nickname management screens
+
+---
+
+Implement the location nicknames feature for Ranti — personal names like "my hostel" or "home" that map to real places.
+
+**Worker side:**
+
+Add three tool handlers to `worker/src/tools/nicknames.ts`: `save_nickname` (UPSERT a nickname → place mapping in D1), `get_nicknames` (list all nicknames for the device), and `delete_nickname` (remove by ID). Build REST routes in `worker/src/routes/nicknames.ts` for `GET /nicknames`, `POST /nicknames`, and `DELETE /nicknames/:id` — these are used by the in-app management screens and bypass the LLM.
+
+Update the agent system prompt so that when the user mentions a possessive place phrase ("my hostel", "my house", "home") the agent first checks existing nicknames via `get_nicknames`. If found, it resolves to the saved location. If not found, the agent asks the user for the real place name, resolves it via `resolve_place`, saves the mapping with `save_nickname`, and then proceeds with the original reminder.
+
+**Android side:**
+
+Build `NicknamesScreen` — a list of all saved nicknames as cards with the nickname label and resolved place name, plus swipe-to-delete. Empty state explains how nicknames work.
+
+Build `NicknameEditScreen` — for creating a new nickname. Includes a nickname text field and a place search field that calls `GET /resolve-place` to find the real location. On save, calls `POST /nicknames`.
+
+Build `NicknamesViewModel` to manage the CRUD state. Wire both screens into `NavGraph` and connect the "Saved Places" row in Settings to navigate to `NicknamesScreen`.
+
+Add `listNicknames`, `saveNickname`, and `deleteNickname` methods to `RantiApi.kt`.
+
+---
+
+## Phase 12 — Data Models & Typed Queries (§15)
+
+> **Covers:** §15 rewritten from Rust to TypeScript, centralized `db/queries.ts` module, tool handler refactor
+
+> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent.
+
+---
+
+The data models in §15 of the SPEC are still written in Rust pseudo-code from the v1.0 spec, but the actual implementation is TypeScript on Cloudflare Workers. Additionally, the `db/queries.ts` typed query helper module listed in §3's file structure was never created — all D1 queries are written inline inside the tool handlers and `auth.ts`. Fix both of these issues.
+
+**Create `worker/src/db/queries.ts`:**
+
+Centralize every D1 query the worker executes into a single typed module. Export row interfaces (`ReminderRow`, `NicknameRow`, `MessageRow`, `DeviceRow`), row-to-domain converters (`rowToReminder`, `rowToNickname`), and CRUD functions for all four tables: `insertReminder`, `selectReminderById`, `selectReminderByMatch`, `selectReminders`, `updateReminderFields`, `deleteReminder`, `upsertNickname`, `selectNicknames`, `selectNicknameByText`, `deleteNickname`, `touchDevice`, `insertMessage`, `selectMessages`. The `updateReminderFields` function should accept a partial fields object so callers can patch any subset of columns without writing separate UPDATE statements for each use case.
+
+**Refactor tool handlers:**
+
+Update `worker/src/tools/reminders.ts`, `worker/src/tools/nicknames.ts`, and `worker/src/lib/auth.ts` to import from `db/queries.ts` instead of writing raw SQL inline. Remove the local `ReminderRow`, `NicknameRow`, `Nickname`, `rowToReminder`, and `rowToNickname` definitions from the tool files since they now live in `queries.ts`. No behavioral changes — the refactor is purely structural.
+
+**Rewrite §15 in SPEC.md:**
+
+Replace all Rust `struct`/`enum` definitions with TypeScript `interface`/`type` definitions that match `worker/src/lib/types.ts` exactly. Add `device_id` to all models (the Rust spec omitted it because data was local; the TypeScript implementation includes it because D1 is shared). Replace §15.4 `ConversationContext` (Rust struct with `WaitingForLocationChoice` etc.) with a note that conversation state is held in the `RantiAgent` Durable Object. Replace §15.5 schema with the actual `0001_init.sql` (which includes the `devices` table and different index names). Add a new §15.6 documenting the query helpers table. Remove the `conversation_context` and `migrations` tables that don't exist in the real schema.
+
+---
+
+## Phase 13 — Agent Tools & Intent Resolution Docs (§16)
+
+> **Covers:** §16 rewritten from v1.0 regex pipeline to LLM tool-calling architecture
+
+> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent.
+
+---
+
+§16 in the SPEC is titled "NLP & Intent Parsing" and describes a v1.0 rule-based regex pipeline with slot extraction and LLM fallback. None of this exists — the v1.1 architecture uses an LLM-first tool-calling agent (documented in §14, implemented in `worker/src/agent.ts`). Rewrite §16 entirely.
+
+**Rename** the section from "NLP & Intent Parsing" to "Agent Tools & Intent Resolution" and add a status banner.
+
+**§16.1 Tool Inventory** — Create a numbered table of all 10 tools (`create_reminder`, `list_reminders`, `delete_reminder`, `update_reminder`, `pause_reminder`, `resume_reminder`, `resolve_time`, `resolve_place`, `save_nickname`, `get_nicknames`) with columns: tool name, module, one-line description, and which SPEC milestone introduced it.
+
+**§16.2 Intent Resolution via Tool Calling** — Replace the regex pipeline flowchart with a mapping table showing how each v1.0 intent (CreateReminder, DeleteReminder, ListReminders, EditReminder, AnswerDisambiguation, DefineNickname, Greeting/Unknown) maps to one or more tool calls in v1.1. Include example user inputs. Document that the tool-use loop runs up to 8 iterations per turn.
+
+**§16.3 System Prompt Rules** — Document the key rules from the agent system prompt: tools before confirmation, time delegation to `lib/time.ts`, location flow (resolve_place first), nickname flow (get_nicknames → resolve → save), recurrence detection, concise replies, and context injection (timezone, local time, input mode).
+
+**§16.4 Body & Time Extraction** — Replace the regex body-extraction rules table with a table showing how the LLM extracts body and time as tool arguments. Reference `parseTimeExpression()` and `parseRecurrence()` in `lib/time.ts`.
+
+**§16.5 Fuzzy Matching for Management** — Rewrite from "Rust core uses Levenshtein distance" to the actual implementation: `selectReminderByMatch()` in `db/queries.ts` using `LIKE %…%` substring match.
+
+---
+
+## Phase 14 — Android-Specific Behaviors Docs (§17)
+
+> **Covers:** Updating §17 offline assumptions to match v1.1 Cloudflare design
+
+> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent.
+
+---
+
+Section §17 of SPEC.md contains outdated assumptions from the v1.0 "local-first Rust core" design (e.g. offline parsing, all data in local SQLite). 
+
+**Scan the Android codebase**, specifically `service/` and `reminders/`, to document the actual implementation. Then update §17:
+- **§17.2:** Change `RECEIVE_BOOT_COMPLETED` permission so it only mentions restarting WakeWordService.
+- **§17.3:** Update Offline Behavior table. Note that "No internet + text/voice input" fails gracefully because parsing is done by Cloudflare LLM agent.
+- **§17.4:** Update Data Privacy table. 'Reminder storage' is in Cloudflare D1, not local SQLite.
+- **§17.5:** Update Device Reboot Handling. Explicitly state the limitation that because data is in D1, alarms and geofences are cleared on reboot and not rescheduled automatically by `BootReceiver` until the app is opened.
+
+---
+
+## Phase 15 — Third-Party SDK Docs (§18)
+
+> **Covers:** Removing abandoned v1.0 Rust architecture and Google Places SDK references
+
+> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent.
+
+---
+
+Section §18 in the SPEC contains massive bleed-over from the v1.0 architecture. Do the following:
+1. **Delete §18.5 Rust / NDK Toolchain**: Remove the section entirely. It was replaced by Cloudflare Workers in v1.1.
+2. **Rewrite §18.2 Google Places SDK**: Change to "Google Places REST API (via Cloudflare)". The Android app does not include the Google Places SDK; instead, the Cloudflare Worker calls the REST API via `worker/src/tools/places.ts`. Update the description to match this reality.
+3. **§19 Background Services**: Update the `BootReceiver` description to reflect that it restarts the `WakeWordService` after reboot, rather than blindly rescheduling reminders.
+
+---
+
+## Phase 16 — Screen Inventory Verification (§19)
+
+> **Covers:** Verifying §19 Screen Inventory against actual `Routes.kt` and screen files
+
+> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent.
+
+---
+
+§19 Screen Inventory needs to be verified against the actual project code. Cross-reference every route in `navigation/Routes.kt` and every composable in `ui/screens/` against the §19 tables. Specifically:
+- Add `{id}` path parameters to routes that use them (`reminders/detail/{id}`, `reminders/edit/{id}`, `nicknames/edit/{id}`).
+- Add a "Composable" column to each table mapping routes to their actual `.kt` composable names.
+- Note that `ReminderFormScreen` is shared between `reminders/new` and `reminders/edit/{id}`.
+- Fix background service class names to match actual code (`GeofenceBroadcastReceiver`, `ReminderReceiver`).
+
+---
+
+## Phase 17 — UI Refinement
+
+> **Covers:** Updating theme tokens, components, and PROMPTS.md for a clean, sleek, and mature aesthetic.
+
+> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent.
+
+---
+
+I want you to improve all the UI of this mobile app, to be clean, sleek and mature. 
+Update the Jetpack Compose color tokens to reflect a modern premium dark and light mode. 
+Deepen the dark theme backgrounds to OLED-friendly darks, change the light theme base to a crisper off-white, and tune the primary Indigo and accent Violet to pop elegantly.
+Adjust the Typography to rely on SemiBold instead of Bold for headings, creating a calmer visual hierarchy.
+Increase corner radii on panels and bubbles for a smoother squircle aesthetic, and increase inner paddings across components like the ReminderCard and ChatBubbles.
+Enhance the VoiceOrb with more sophisticated idle and active gradient glow styling, giving it a subtle 3D depth instead of a flat look.
+Finally, do not forget to update this `PROMPTS.md` document to record this phase.

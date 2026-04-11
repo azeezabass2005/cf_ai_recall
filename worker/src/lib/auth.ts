@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import type { DeviceId } from "./types";
+import { touchDevice as touchDeviceQuery } from "../db/queries";
 
 export class MissingDeviceError extends Error {
   constructor() {
@@ -21,14 +22,9 @@ export function getDeviceId(c: Context): DeviceId {
 /**
  * Upsert device row so we have a record of every device that has ever called us.
  * Idempotent — safe to call on every request.
+ *
+ * Delegates to db/queries.ts — the SQL lives there.
  */
 export async function touchDevice(db: D1Database, deviceId: DeviceId): Promise<void> {
-  await db
-    .prepare(
-      `INSERT INTO devices (id, first_seen_at, last_seen_at)
-       VALUES (?1, ?2, ?2)
-       ON CONFLICT(id) DO UPDATE SET last_seen_at = excluded.last_seen_at`,
-    )
-    .bind(deviceId, new Date().toISOString())
-    .run();
+  return touchDeviceQuery(db, deviceId);
 }

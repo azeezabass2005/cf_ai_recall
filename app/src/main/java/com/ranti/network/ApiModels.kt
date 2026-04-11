@@ -13,6 +13,8 @@ data class ChatRequest(
     val input_mode: String = "text",
     val tz: String,
     val client_now: String,
+    val user_lat: Double? = null,
+    val user_lng: Double? = null,
 )
 
 @Serializable
@@ -141,4 +143,57 @@ data class ReminderResumeResponse(
 @Serializable
 data class ReminderSnoozeResponse(
     val snoozed: ReminderDto? = null,
+)
+
+// ─── Nickname models ────────────────────────────────────────────────────────
+
+@Serializable
+data class NicknameDto(
+    val id: String,
+    val device_id: String,
+    val nickname: String,
+    val place_name: String,
+    val place_id: String? = null,
+    val lat: Double,
+    val lng: Double,
+    val created_at: String,
+    val updated_at: String,
+)
+
+@Serializable
+data class SaveNicknameRequest(
+    val nickname: String,
+    val place_name: String,
+    val place_id: String? = null,
+    val lat: Double,
+    val lng: Double,
+)
+
+@Serializable
+data class NicknameListResponse(
+    val nicknames: List<NicknameDto>,
+)
+
+@Serializable
+data class NicknameSaveResponse(
+    val nickname: NicknameDto,
+)
+
+@Serializable
+data class NicknameDeleteResponse(
+    val deleted: NicknameDto? = null,
+)
+
+// ─── Place resolution models ────────────────────────────────────────────────
+
+@Serializable
+data class ResolvePlaceRequest(
+    val query: String,
+    val bias_lat: Double? = null,
+    val bias_lng: Double? = null,
+)
+
+@Serializable
+data class ResolvePlaceResponse(
+    val places: List<PlaceOption>,
 )

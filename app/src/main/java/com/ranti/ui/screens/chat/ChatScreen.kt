@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ranti.ui.components.ChatBubble
+import com.ranti.ui.components.DisambiguationSheet
 import com.ranti.ui.components.OrbState
 import com.ranti.ui.components.VoiceOrb
 import com.ranti.ui.theme.LocalRantiColors
@@ -81,6 +82,15 @@ fun ChatScreen(
         }
     }
 
+    // SPEC §8 — show disambiguation sheet when the agent returns multiple places.
+    state.disambiguation?.let { disamb ->
+        DisambiguationSheet(
+            disambiguation = disamb,
+            onSelect = vm::onDisambiguationSelect,
+            onDismiss = vm::onDismissDisambiguation,
+        )
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -106,12 +116,7 @@ fun ChatScreen(
                             tint = ranti.textHi,
                         )
                     }
-                    IconButton(onClick = {
-                        scope.launch {
-                            snackbarHost.showSnackbar("Settings — milestone §13")
-                        }
-                        onOpenSettings()
-                    }) {
+                    IconButton(onClick = onOpenSettings) {
                         Icon(
                             Icons.Default.Settings,
                             contentDescription = "Settings",

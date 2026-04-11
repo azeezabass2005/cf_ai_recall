@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -17,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.ranti.data.OnboardingPrefs
@@ -66,12 +68,19 @@ class MainActivity : ComponentActivity() {
         handleWakeIntent(intent)
 
         setContent {
-            RantiTheme {
+            val context = LocalContext.current
+            val themeMode by OnboardingPrefs.themeModeFlow(context)
+                .collectAsStateWithLifecycle(initialValue = "system")
+            val isDark = when (themeMode) {
+                "dark" -> true
+                "light" -> false
+                else -> isSystemInDarkTheme()
+            }
+            RantiTheme(darkTheme = isDark) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    val context = LocalContext.current
                     val nav = rememberNavController()
 
                     var startDestination by remember { mutableStateOf<String?>(null) }

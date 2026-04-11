@@ -73,6 +73,10 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.12")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.2")
 
+    // Location — geofencing for location-based reminders
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
+
     // Wake word — Vosk offline speech recognition (grammar-mode keyword spotting)
     implementation("com.alphacephei:vosk-android:0.3.75")
 

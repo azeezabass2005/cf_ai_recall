@@ -117,4 +117,45 @@ class RantiApi(private val context: Context) {
         }
         return json.decodeFromString(ReminderSnoozeResponse.serializer(), response.bodyAsText()).snoozed
     }
+
+    // ─── Nicknames CRUD (REST, no LLM) ────────────────────────────────
+
+    suspend fun listNicknames(): List<NicknameDto> {
+        val response = client.get("$baseUrl/nicknames") { deviceHeaders() }
+        return json.decodeFromString(NicknameListResponse.serializer(), response.bodyAsText()).nicknames
+    }
+
+    suspend fun saveNickname(
+        nickname: String,
+        placeName: String,
+        placeId: String? = null,
+        lat: Double,
+        lng: Double,
+    ): NicknameDto {
+        val response = client.post("$baseUrl/nicknames") {
+            deviceHeaders()
+            setBody(SaveNicknameRequest(nickname = nickname, place_name = placeName, place_id = placeId, lat = lat, lng = lng))
+        }
+        return json.decodeFromString(NicknameSaveResponse.serializer(), response.bodyAsText()).nickname
+    }
+
+    suspend fun deleteNickname(nickname: String): NicknameDto? {
+        val encoded = java.net.URLEncoder.encode(nickname, "UTF-8")
+        val response = client.delete("$baseUrl/nicknames/$encoded") { deviceHeaders() }
+        return json.decodeFromString(NicknameDeleteResponse.serializer(), response.bodyAsText()).deleted
+    }
+
+    // ─── Place resolution (REST, no LLM) ──────────────────────────────
+
+    suspend fun resolvePlace(
+        query: String,
+        biasLat: Double? = null,
+        biasLng: Double? = null,
+    ): List<PlaceOption> {
+        val response = client.post("$baseUrl/resolve-place") {
+            deviceHeaders()
+            setBody(ResolvePlaceRequest(query = query, bias_lat = biasLat, bias_lng = biasLng))
+        }
+        return json.decodeFromString(ResolvePlaceResponse.serializer(), response.bodyAsText()).places
+    }
 }

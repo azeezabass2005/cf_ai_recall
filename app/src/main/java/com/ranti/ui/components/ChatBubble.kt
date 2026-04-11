@@ -2,6 +2,7 @@ package com.ranti.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +21,21 @@ enum class BubbleSender { User, Ranti }
  * User bubbles right-aligned, primary container background.
  * Ranti bubbles left-aligned, surface background, Plus Jakarta Sans body-lg.
  */
+
+val UserBubbleShape = RoundedCornerShape(
+    topStart = 24.dp,
+    topEnd = 24.dp,
+    bottomEnd = 6.dp,
+    bottomStart = 24.dp
+)
+
+val RantiBubbleShape = RoundedCornerShape(
+    topStart = 24.dp,
+    topEnd = 24.dp,
+    bottomEnd = 24.dp,
+    bottomStart = 6.dp
+)
+
 @Composable
 fun ChatBubble(
     sender: BubbleSender,
@@ -32,18 +48,18 @@ fun ChatBubble(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = Spacing.base, vertical = Spacing.xxs),
+            .padding(horizontal = Spacing.base, vertical = 6.dp), // slightly airier spacing
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
     ) {
         Box(
             modifier = Modifier
                 .widthIn(max = 320.dp)
-                .clip(MaterialTheme.shapes.extraLarge)
+                .clip(if (isUser) UserBubbleShape else RantiBubbleShape)
                 .background(
                     if (isUser) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.surface,
                 )
-                .padding(horizontal = Spacing.base, vertical = Spacing.md),
+                .padding(horizontal = 20.dp, vertical = 14.dp), // Sleeker inner padding
             contentAlignment = Alignment.Center,
         ) {
             Text(
