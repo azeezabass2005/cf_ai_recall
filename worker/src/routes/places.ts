@@ -18,7 +18,7 @@ export const places = new Hono<{ Bindings: Env }>()
     const body = await c.req.json().catch(() => null);
     if (!body) return c.json({ error: "Invalid JSON body" }, 400);
     try {
-      const results = await handleResolvePlace(body, c.env.GOOGLE_PLACES_API_KEY);
+      const results = await handleResolvePlace(body);
       return c.json({ places: results });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

@@ -1,13 +1,17 @@
 package com.ranti.ui.theme
 
+import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 /**
  * Ranti color tokens that don't fit Material3's slot model
@@ -126,6 +130,21 @@ fun RantiTheme(
         )
     }
 
+    // Sync system bar icon appearance with the current theme so the
+    // navigation bar buttons (and status bar icons) blend with the app
+    // background instead of showing a jarring white/dark bar.
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            // Light theme → dark icons on light background
+            // Dark theme  → light icons on dark background
+            insetsController.isAppearanceLightStatusBars = !darkTheme
+            insetsController.isAppearanceLightNavigationBars = !darkTheme
+        }
+    }
+
     androidx.compose.runtime.CompositionLocalProvider(LocalRantiColors provides rantiColors) {
         MaterialTheme(
             colorScheme = colorScheme,
@@ -135,3 +154,4 @@ fun RantiTheme(
         )
     }
 }
+

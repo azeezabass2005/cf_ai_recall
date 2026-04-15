@@ -20,7 +20,7 @@ android {
         // For local dev swap back to your LAN IP and run `wrangler dev`.
         buildConfigField("String", "RANTI_BASE_URL", "\"https://ranti-worker.azeezabass2005.workers.dev\"")
 
-        // Keep APK size manageable — Vosk ships native libs for every ABI.
+        // Keep APK size manageable — PocketSphinx ships native libs for every ABI.
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
@@ -77,8 +77,12 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
 
-    // Wake word — Vosk offline speech recognition (grammar-mode keyword spotting)
-    implementation("com.alphacephei:vosk-android:0.3.75")
+    // Wake word — CMU PocketSphinx offline keyword spotting (bundled local AAR).
+    // The AAR lives at app/libs/pocketsphinx-android-5prealpha-release.aar and
+    // ships prebuilt JNI libs for arm64-v8a, armeabi-v7a, x86, and x86_64.
+    // Acoustic model + dictionary are in assets/sync/models/; "ranti" has been
+    // added to words.dic with phoneme string "R AE N T IY".
+    implementation(files("libs/pocketsphinx-android-5prealpha-release.aar"))
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

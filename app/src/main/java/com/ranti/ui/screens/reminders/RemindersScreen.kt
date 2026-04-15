@@ -192,7 +192,7 @@ private fun EmptyState(tab: ReminderTab) {
             Spacer(Modifier.height(Spacing.base))
             Text(
                 text = when (tab) {
-                    ReminderTab.Active -> "No reminders right now.\nTap + or say \"Hi Ranti\" to add one."
+                    ReminderTab.Active -> "No reminders right now.\nTap + or say \"Hi Recall\" to add one."
                     ReminderTab.Recurring -> "No recurring reminders.\nSet one up for things that happen on a schedule."
                     ReminderTab.History -> "No completed reminders yet."
                 },

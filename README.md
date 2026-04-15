@@ -1,6 +1,6 @@
 # Ranti
 
-A voice-first reminder app that lives in the background of your phone. You talk to it the way you'd talk to a person — no rigid commands — and it figures out the rest.
+A voice-first reminder app for Android. You talk to it the way you'd talk to a person — no rigid commands — and it figures out the rest.
 
 For the full product story see [`USER_STORY.md`](./USER_STORY.md). For the technical spec see [`SPEC.md`](./SPEC.md). For the visual language see [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md).
 
@@ -17,7 +17,7 @@ ranti/
 └── DESIGN_SYSTEM.md
 ```
 
-The Android app is intentionally thin: voice/text input → HTTPS to the Worker → response. All language understanding lives in the Worker as an LLM agent that reaches the world through tool calls. On-device responsibilities are limited to wake word, speech recognition, alarms, geofences, notifications, and TTS — see `SPEC.md` §1 for the full split.
+The Android app is intentionally thin: voice/text input → HTTPS to the Worker → response. All language understanding lives in the Worker as an LLM agent that reaches the world through tool calls. On-device responsibilities are limited to speech recognition, alarms, geofences, notifications, and TTS — see `SPEC.md` §1 for the full split.
 
 ## Status
 
@@ -28,7 +28,7 @@ What works today:
 - `app/` — Compose Android project with a single `ChatScreen` that posts to the Worker and renders the reply. Mirrors the file layout described in SPEC §3.
 
 What does **not** work yet:
-- Wake word, speech recognition, real reminder creation, location resolution, alarms, geofences, notifications — all gated behind their respective milestones.
+- Wake word (in-app only), speech recognition, real reminder creation, location resolution, alarms, geofences, notifications — all gated behind their respective milestones.
 - The agent is currently an echo. The real Anthropic tool-use loop lands in milestone §5.
 
 ---

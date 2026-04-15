@@ -37,9 +37,10 @@ fun ReminderDetailScreen(
     val ranti = LocalRantiColors.current
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    // Load if not cached
+    // If the VM is shared via nested nav graph, data is already loaded.
+    // Fallback: if opened from a deep link or the cache was cleared, reload.
     LaunchedEffect(reminderId) {
-        if (reminder == null) vm.loadReminders()
+        if (reminder == null && !state.isLoading) vm.loadReminders()
     }
 
     Scaffold(

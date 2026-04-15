@@ -35,12 +35,14 @@ fun LocationSettingsScreen(onNavigateBack: () -> Unit) {
 
     var gpsEnabled by remember { mutableStateOf(false) }
     var radiusIndex by remember { mutableIntStateOf(1) } // default 100m
+    var activeGeofences by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         gpsEnabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER)
         val storedRadius = OnboardingPrefs.getGeofenceRadius(context)
         radiusIndex = radiusOptions.indexOf(storedRadius).coerceAtLeast(1)
+        activeGeofences = com.ranti.location.GeofencePrefs.getActiveCount(context)
     }
 
     Scaffold(
@@ -126,7 +128,7 @@ fun LocationSettingsScreen(onNavigateBack: () -> Unit) {
                 Icon(Icons.Default.Place, contentDescription = null, tint = ranti.textMid)
                 Spacer(Modifier.width(Spacing.sm))
                 Text("Active geofences", style = MaterialTheme.typography.bodyLarge, color = ranti.textHi, modifier = Modifier.weight(1f))
-                Text("0 / 100", style = MaterialTheme.typography.bodyMedium, color = ranti.textMid)
+                Text("$activeGeofences / 100", style = MaterialTheme.typography.bodyMedium, color = ranti.textMid)
             }
 
             Spacer(Modifier.height(Spacing.xl))

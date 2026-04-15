@@ -1,29 +1,21 @@
 package com.ranti.location
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.RingtoneManager
-import android.os.Build
 import android.util.Log
-import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.GeofencingEvent
 import com.google.android.gms.location.Geofence
-import com.ranti.MainActivity
-import com.ranti.R
-import com.ranti.reminders.ReminderActionReceiver
-import com.ranti.reminders.ReminderScheduler
 
 /**
- * SPEC §9 — Fired when the user enters a geofenced area.
+ * SPEC §9 — Fired when the passive Geofencing API detects an ENTER transition.
  *
- * Posts a heads-up notification with "Done" action (reuses
- * [ReminderActionReceiver.ACTION_DONE]). Reads reminder body from
- * [GeofencePrefs] since onReceive is synchronous.
+ * This is the Play Services callback. On modern Android it can be delayed by
+ * 30 min – 2 hours due to battery optimisation. [GeofenceMonitorService]
+ * supplements it with active location polling so reminders fire promptly.
+ *
+ * If the monitor service already fired the notification for this geofence,
+ * [GeofencePrefs] will have been cleared — we just skip silently.
  */
 class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
@@ -42,92 +34,24 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         val triggeringGeofences = event.triggeringGeofences ?: return
         for (geofence in triggeringGeofences) {
             val reminderId = geofence.requestId
-            val body = GeofencePrefs.getBody(context, reminderId) ?: "Location reminder"
+            // If the monitor service already handled this, prefs will be empty.
+            val body = GeofencePrefs.getBody(context, reminderId) ?: continue
             val placeName = GeofencePrefs.getPlaceName(context, reminderId) ?: "this place"
 
-            Log.d(TAG, "Geofence enter: $reminderId at $placeName")
-            showNotification(context, reminderId, body, placeName)
+            Log.d(TAG, "Geofence enter (passive API): $reminderId at $placeName")
+            GeofenceNotificationHelper.showNotification(context, reminderId, body, placeName)
+
+            // Clean up so the monitor service doesn't double-fire.
+            GeofencePrefs.remove(context, reminderId)
         }
-    }
 
-    private fun showNotification(
-        context: Context,
-        reminderId: String,
-        body: String,
-        placeName: String,
-    ) {
-        ensureChannel(context)
-
-        val tapIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        // If no geofences remain, stop the monitor service.
+        if (GeofencePrefs.getActiveCount(context) == 0) {
+            GeofenceMonitorService.stopMonitoring(context)
         }
-        val tapPi = PendingIntent.getActivity(
-            context,
-            reminderId.hashCode(),
-            tapIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        // "Done" action — dismisses and cleans up geofence prefs
-        val doneIntent = Intent(context, ReminderActionReceiver::class.java).apply {
-            action = ReminderActionReceiver.ACTION_DONE
-            putExtra(ReminderScheduler.EXTRA_REMINDER_ID, reminderId)
-        }
-        val donePi = PendingIntent.getBroadcast(
-            context,
-            "done_$reminderId".hashCode(),
-            doneIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
-        val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setContentTitle("You're near $placeName")
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .setAutoCancel(true)
-            .setContentIntent(tapPi)
-            .setSound(alarmSound)
-            .addAction(R.mipmap.ic_launcher, "Done", donePi)
-            .build()
-
-        val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        nm.notify(reminderId.hashCode(), notification)
-    }
-
-    private fun ensureChannel(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val nm = context.getSystemService(NotificationManager::class.java) ?: return
-        if (nm.getNotificationChannel(CHANNEL_ID) != null) return
-
-        val audioAttributes = AudioAttributes.Builder()
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-            .build()
-
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Ranti Reminders",
-            NotificationManager.IMPORTANCE_HIGH,
-        ).apply {
-            description = "Ranti reminder alerts"
-            enableVibration(true)
-            setShowBadge(true)
-            setSound(
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
-                audioAttributes,
-            )
-        }
-        nm.createNotificationChannel(channel)
     }
 
     companion object {
         private const val TAG = "GeofenceReceiver"
-        // Same channel as ReminderReceiver so all reminders are grouped
-        private const val CHANNEL_ID = "ranti_reminders_v3"
     }
 }

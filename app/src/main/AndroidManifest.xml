@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <!-- API 33+ fast-path for reminder apps: auto-granted, no user opt-in.
@@ -17,9 +18,9 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 
     <application
         android:name=".RantiApp"
@@ -34,6 +35,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.Ranti">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -41,13 +43,15 @@
             </intent-filter>
         </activity>
 
-        <!-- SPEC §6.1 — wake-word foreground service. -->
-        <service
-            android:name=".service.WakeWordService"
-            android:exported="false"
-            android:foregroundServiceType="microphone" />
 
-        <!-- SPEC §6.1 — restart wake word after reboot if enabled. -->
+
+        <!-- Active location monitor for reliable geofence triggering. -->
+        <service
+            android:name=".location.GeofenceMonitorService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <!-- Restart geofence monitoring after reboot if needed. -->
         <receiver
             android:name=".service.BootReceiver"
             android:enabled="true"

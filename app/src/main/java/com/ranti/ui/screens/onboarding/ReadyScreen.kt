@@ -53,7 +53,7 @@ fun ReadyScreen(onFinish: () -> Unit) {
             Spacer(Modifier.height(Spacing.base))
 
             Text(
-                text = "Just say \"Hi Ranti\" anytime, or open the app and type. I'll remember so you don't have to.",
+                text = "Just say \"Hi Recall\" anytime, or open the app and type. I'll remember so you don't have to.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = ranti.textMid,
                 textAlign = TextAlign.Center,

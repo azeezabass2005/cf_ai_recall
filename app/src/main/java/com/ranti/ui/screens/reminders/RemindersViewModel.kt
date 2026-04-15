@@ -96,6 +96,6 @@ data class RemindersState(
     val recurringList: List<ReminderDto> = emptyList(),
     val historyList: List<ReminderDto> = emptyList(),
     val selectedTab: ReminderTab = ReminderTab.Active,
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true,
     val error: String? = null,
 )

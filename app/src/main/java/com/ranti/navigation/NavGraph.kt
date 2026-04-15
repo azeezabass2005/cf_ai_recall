@@ -1,10 +1,13 @@
 package com.ranti.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.navigation
 import androidx.navigation.navArgument
 import com.ranti.ui.screens.chat.ChatScreen
 import com.ranti.ui.screens.onboarding.PermissionsScreen
@@ -14,6 +17,7 @@ import com.ranti.ui.screens.onboarding.WelcomeScreen
 import com.ranti.ui.screens.reminders.ReminderDetailScreen
 import com.ranti.ui.screens.reminders.ReminderFormScreen
 import com.ranti.ui.screens.reminders.RemindersScreen
+import com.ranti.ui.screens.reminders.RemindersViewModel
 import com.ranti.ui.screens.settings.AboutScreen
 import com.ranti.ui.screens.settings.LocationSettingsScreen
 import com.ranti.ui.screens.nicknames.NicknameEditScreen
@@ -22,8 +26,7 @@ import com.ranti.ui.screens.settings.NotificationSettingsScreen
 import com.ranti.ui.screens.settings.SettingsScreen
 import com.ranti.ui.screens.settings.VoiceSettingsScreen
 import com.ranti.ui.screens.settings.WakeWordSettingsScreen
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
+
 
 /**
  * Top-level navigation graph. Onboarding (§4) is wired up; reminders, nicknames,
@@ -34,7 +37,6 @@ import kotlinx.coroutines.flow.StateFlow
 fun NavGraph(
     navController: NavHostController,
     startDestination: String,
-    wakeEvents: StateFlow<Int> = MutableStateFlow(0),
 ) {
     NavHost(
         navController = navController,
@@ -61,49 +63,57 @@ fun NavGraph(
         }
         composable(Routes.Chat) {
             ChatScreen(
-                onOpenReminders = { navController.navigate(Routes.RemindersIndex) },
+                onOpenReminders = { navController.navigate("reminders_graph") },
                 onCreateReminder = { navController.navigate(Routes.RemindersNew) },
                 onOpenSettings = { navController.navigate(Routes.SettingsIndex) },
-                wakeEvents = wakeEvents,
             )
         }
 
-        composable(Routes.RemindersIndex) {
-            RemindersScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onCreateReminder = { navController.navigate(Routes.RemindersNew) },
-                onReminderClick = { id ->
-                    navController.navigate(Routes.RemindersDetail.replace("{id}", id))
-                },
-            )
-        }
-        composable(
-            route = Routes.RemindersDetail,
-            arguments = listOf(navArgument("id") { type = NavType.StringType }),
-        ) { backStackEntry ->
-            val id = backStackEntry.arguments?.getString("id") ?: return@composable
-            ReminderDetailScreen(
-                reminderId = id,
-                onNavigateBack = { navController.popBackStack() },
-                onEdit = { editId ->
-                    navController.navigate(Routes.RemindersEdit.replace("{id}", editId))
-                },
-            )
-        }
-        composable(Routes.RemindersNew) {
-            ReminderFormScreen(
-                onNavigateBack = { navController.popBackStack() },
-            )
-        }
-        composable(
-            route = Routes.RemindersEdit,
-            arguments = listOf(navArgument("id") { type = NavType.StringType }),
-        ) { backStackEntry ->
-            val id = backStackEntry.arguments?.getString("id") ?: return@composable
-            ReminderFormScreen(
-                editReminderId = id,
-                onNavigateBack = { navController.popBackStack() },
-            )
+        // Nested nav graph for reminders — scopes the ViewModel so list + detail share state.
+        navigation(startDestination = Routes.RemindersIndex, route = "reminders_graph") {
+            composable(Routes.RemindersIndex) {
+                val parentEntry = remember(it) { navController.getBackStackEntry("reminders_graph") }
+                val vm: RemindersViewModel = viewModel(parentEntry)
+                RemindersScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onCreateReminder = { navController.navigate(Routes.RemindersNew) },
+                    onReminderClick = { id ->
+                        navController.navigate(Routes.RemindersDetail.replace("{id}", id))
+                    },
+                    vm = vm,
+                )
+            }
+            composable(
+                route = Routes.RemindersDetail,
+                arguments = listOf(navArgument("id") { type = NavType.StringType }),
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getString("id") ?: return@composable
+                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("reminders_graph") }
+                val vm: RemindersViewModel = viewModel(parentEntry)
+                ReminderDetailScreen(
+                    reminderId = id,
+                    onNavigateBack = { navController.popBackStack() },
+                    onEdit = { editId ->
+                        navController.navigate(Routes.RemindersEdit.replace("{id}", editId))
+                    },
+                    vm = vm,
+                )
+            }
+            composable(Routes.RemindersNew) {
+                ReminderFormScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                )
+            }
+            composable(
+                route = Routes.RemindersEdit,
+                arguments = listOf(navArgument("id") { type = NavType.StringType }),
+            ) { backStackEntry ->
+                val id = backStackEntry.arguments?.getString("id") ?: return@composable
+                ReminderFormScreen(
+                    editReminderId = id,
+                    onNavigateBack = { navController.popBackStack() },
+                )
+            }
         }
 
         // ── Settings ──────────────────────────────────────────────────────────

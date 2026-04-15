@@ -10,12 +10,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import com.ranti.data.OnboardingPrefs
-import com.ranti.service.WakeWordService
 import com.ranti.ui.components.OrbState
 import com.ranti.ui.components.VoiceOrb
 import com.ranti.ui.theme.LocalRantiColors
 import com.ranti.ui.theme.Spacing
-import com.ranti.voice.VoskWakeWordEngine
+import com.ranti.voice.PocketSphinxWakeWordEngine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -23,7 +22,7 @@ import kotlinx.coroutines.launch
  * SPEC §13.2 — Wake Word settings.
  *
  * Enable/disable the wake word service, adjust sensitivity, and test detection
- * live with the real Vosk engine — mirrors the onboarding wake-word screen.
+ * live with the real PocketSphinx engine — mirrors the onboarding wake-word screen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,7 +36,7 @@ fun WakeWordSettingsScreen(onNavigateBack: () -> Unit) {
     var orbState by remember { mutableStateOf(OrbState.Idle) }
     var feedback by remember { mutableStateOf<String?>(null) }
     var isTesting by remember { mutableStateOf(false) }
-    var testEngine by remember { mutableStateOf<VoskWakeWordEngine?>(null) }
+    var testEngine by remember { mutableStateOf<PocketSphinxWakeWordEngine?>(null) }
 
     LaunchedEffect(Unit) {
         enabled = OnboardingPrefs.isWakeWordEnabled(context)
@@ -47,7 +46,6 @@ fun WakeWordSettingsScreen(onNavigateBack: () -> Unit) {
     DisposableEffect(Unit) {
         onDispose {
             testEngine?.stop()
-            testEngine?.release()
             testEngine = null
         }
     }
@@ -85,7 +83,7 @@ fun WakeWordSettingsScreen(onNavigateBack: () -> Unit) {
                 Spacer(Modifier.width(Spacing.sm))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Enable wake word", style = MaterialTheme.typography.bodyLarge, color = ranti.textHi)
-                    Text("Say \"Hi Ranti\" to open the app", style = MaterialTheme.typography.bodySmall, color = ranti.textMid)
+                    Text("Say \"Hi Recall\" to open the app", style = MaterialTheme.typography.bodySmall, color = ranti.textMid)
                 }
                 Switch(
                     checked = enabled,
@@ -93,7 +91,6 @@ fun WakeWordSettingsScreen(onNavigateBack: () -> Unit) {
                         enabled = on
                         scope.launch {
                             OnboardingPrefs.setWakeWordEnabled(context, on)
-                            if (on) WakeWordService.start(context) else WakeWordService.stop(context)
                         }
                     },
                 )
@@ -149,8 +146,8 @@ fun WakeWordSettingsScreen(onNavigateBack: () -> Unit) {
                         isTesting = true
                         scope.launch {
                             orbState = OrbState.Listening
-                            feedback = "Listening for \"Hi Ranti\"…"
-                            val engine = VoskWakeWordEngine(context)
+                            feedback = "Listening for \"Hi Recall\"…"
+                            val engine = PocketSphinxWakeWordEngine(context)
                             testEngine = engine
                             engine.setSensitivity(sensitivity)
                             var detected = false
@@ -163,7 +160,6 @@ fun WakeWordSettingsScreen(onNavigateBack: () -> Unit) {
                                 elapsed += interval
                             }
                             engine.stop()
-                            engine.release()
                             testEngine = null
                             if (detected) {
                                 orbState = OrbState.Speaking

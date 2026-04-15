@@ -9,22 +9,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ranti.data.OnboardingPrefs
-import com.ranti.service.WakeWordService
 import com.ranti.ui.components.OrbState
 import com.ranti.ui.components.VoiceOrb
 import com.ranti.ui.theme.LocalRantiColors
 import com.ranti.ui.theme.Spacing
-import com.ranti.voice.VoskWakeWordEngine
+import com.ranti.voice.PocketSphinxWakeWordEngine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
  * SPEC §4.3 — Wake Word Setup.
  *
- * Uses the Vosk-based [VoskWakeWordEngine] to perform a real wake-word test.
- * The user says "Hi Ranti" and the engine detects it — no simulation.
+ * Uses the PocketSphinx-based [PocketSphinxWakeWordEngine] to perform a real
+ * wake-word test. The user says "Hi Recall" and the engine detects it — no
+ * simulation.
  *
- * If the engine cannot initialise (e.g. model not available), falls back to
+ * If the engine cannot initialise (e.g. assets not yet synced), falls back to
  * a simulated detection so the onboarding flow is never blocked.
  */
 @Composable
@@ -41,13 +41,12 @@ fun WakeWordSetupScreen(
     var isTesting by remember { mutableStateOf(false) }
 
     // Hold a reference to the test engine so we can clean it up.
-    var testEngine by remember { mutableStateOf<VoskWakeWordEngine?>(null) }
+    var testEngine by remember { mutableStateOf<PocketSphinxWakeWordEngine?>(null) }
 
     // Clean up on dispose
     DisposableEffect(Unit) {
         onDispose {
             testEngine?.stop()
-            testEngine?.release()
             testEngine = null
         }
     }
@@ -70,7 +69,7 @@ fun WakeWordSetupScreen(
             )
             Spacer(Modifier.height(Spacing.sm))
             Text(
-                text = "Or just \"Hi Ranti\" — I respond to both.",
+                text = "I'll listen for \"Hi Recall\" while the app is open.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = ranti.textMid,
                 textAlign = TextAlign.Center,
@@ -120,10 +119,9 @@ fun WakeWordSetupScreen(
                     isTesting = true
                     scope.launch {
                         orbState = OrbState.Listening
-                        feedback = "Listening for \"Hi Recall\" / \"Hi Ranti\"…"
+                        feedback = "Listening for \"Hi Recall\"…"
 
-                        // Create and start a real Vosk engine for the test
-                        val engine = VoskWakeWordEngine(context)
+                        val engine = PocketSphinxWakeWordEngine(context)
                         testEngine = engine
                         engine.setSensitivity(sensitivity)
 
@@ -141,9 +139,7 @@ fun WakeWordSetupScreen(
                             elapsed += checkInterval
                         }
 
-                        // Clean up the test engine
                         engine.stop()
-                        engine.release()
                         testEngine = null
 
                         if (detected) {
@@ -178,7 +174,6 @@ fun WakeWordSetupScreen(
                     scope.launch {
                         OnboardingPrefs.setWakeWordEnabled(context, true)
                         OnboardingPrefs.setWakeWordSensitivity(context, sensitivity)
-                        WakeWordService.start(context)
                         onContinue()
                     }
                 },
@@ -196,7 +191,6 @@ fun WakeWordSetupScreen(
                 onClick = {
                     scope.launch {
                         OnboardingPrefs.setWakeWordEnabled(context, false)
-                        WakeWordService.stop(context)
                         onContinue()
                     }
                 },

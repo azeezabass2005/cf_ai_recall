@@ -124,4 +124,21 @@ export const reminders = new Hono<{ Bindings: Env }>()
       const msg = err instanceof Error ? err.message : String(err);
       return c.json({ error: msg }, 400);
     }
+  })
+
+  // POST /reminders/:id/done — mark a reminder as dismissed
+  .post("/:id/done", async (c) => {
+    const deviceId = getDeviceId(c);
+    const id = c.req.param("id");
+    const ctx = buildCtx(c, deviceId);
+    try {
+      const { updateReminderFields } = await import("../db/queries");
+      await updateReminderFields(ctx.db, id, deviceId, {
+        status: "dismissed",
+      });
+      return c.json({ ok: true, id });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return c.json({ error: msg }, 400);
+    }
   });

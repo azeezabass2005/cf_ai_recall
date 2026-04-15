@@ -23,6 +23,7 @@ import {
   updateReminderFields,
   deleteReminder as deleteReminderQuery,
 } from "../db/queries";
+import { handleResolvePlace } from "./places";
 
 // ─── Tool schemas (Anthropic tool_use format) ───────────────────────────────
 
@@ -216,20 +217,27 @@ export async function handleCreateReminder(
       radius_m: input.radius_m ?? 100,
       original_expr: input.location_query ?? input.place_name,
     };
-  } else if (input.location_query) {
-    // Fallback — LLM passed location_query without resolving first. Shouldn't
-    // happen in normal flow (system prompt mandates resolve_place first), but
-    // we keep it to avoid a hard crash. Coordinates are zeroed — the Android
-    // client won't be able to register a geofence until coordinates are real.
-    trigger = {
-      type: "location",
-      place_name: input.location_query,
-      place_id: null,
-      lat: 0,
-      lng: 0,
-      radius_m: input.radius_m ?? 100,
-      original_expr: input.location_query,
-    };
+  } else if (input.location_query || input.place_name) {
+    // Fallback — LLM passed a location name without coordinates. Auto-resolve
+    // server-side so the Android client can register a real geofence.
+    const query = input.location_query || input.place_name || "";
+    const places = await handleResolvePlace({ query });
+    if (places.length > 0) {
+      const best = places[0]!;
+      trigger = {
+        type: "location",
+        place_name: best.name,
+        place_id: best.place_id,
+        lat: best.lat,
+        lng: best.lng,
+        radius_m: input.radius_m ?? 100,
+        original_expr: query,
+      };
+    } else {
+      throw new Error(
+        `Could not resolve location "${query}". Ask the user to be more specific about the place.`,
+      );
+    }
   } else {
     // Time-based. Try recurrence first, then one-shot.
     const expr = input.time_expr ?? "";

@@ -15,13 +15,9 @@ import kotlinx.coroutines.tasks.await
 /**
  * SPEC §9 — Geofence registration.
  *
- * Uses a single shared PendingIntent (request code 0) for all geofences.
- * The Geofencing API injects extras at delivery time — the receiver uses
- * [com.google.android.gms.location.GeofencingEvent.getTriggeringGeofences]
- * to iterate through the triggered fences.
- *
- * The PendingIntent uses FLAG_MUTABLE because the Geofencing API needs to
- * inject extras at delivery time.
+ * Registers geofences with the Play Services Geofencing API (passive) AND
+ * starts [GeofenceMonitorService] (active polling) so location reminders
+ * fire promptly instead of being delayed by Android's battery batching.
  */
 object GeofenceManager {
 
@@ -53,14 +49,16 @@ object GeofenceManager {
             return false
         }
 
-        // Persist body + place name so the BroadcastReceiver can read them synchronously.
-        GeofencePrefs.put(context, reminderId, body, placeName)
+        // Persist body, place name, AND coordinates so the monitor service
+        // can check proximity directly without the Geofencing API.
+        GeofencePrefs.put(context, reminderId, body, placeName, lat, lng, radiusM)
 
         val geofence = Geofence.Builder()
             .setRequestId(reminderId)
             .setCircularRegion(lat, lng, radiusM)
             .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER)
             .setExpirationDuration(Geofence.NEVER_EXPIRE)
+            .setNotificationResponsiveness(0) // minimum delay
             .build()
 
         val request = GeofencingRequest.Builder()
@@ -72,10 +70,18 @@ object GeofenceManager {
         return try {
             client.addGeofences(request, geofencePendingIntent(context)).await()
             Log.d(TAG, "Registered geofence $reminderId at ($lat, $lng) r=${radiusM}m")
+
+            // Start the active location monitor so we don't rely solely on
+            // the passive Geofencing API which can delay triggers by hours.
+            GeofenceMonitorService.startMonitoring(context)
+
             true
         } catch (e: Exception) {
             Log.e(TAG, "Failed to register geofence $reminderId", e)
-            false
+            // Still start the monitor — our manual proximity check works even
+            // if the Geofencing API registration failed.
+            GeofenceMonitorService.startMonitoring(context)
+            true
         }
     }
 
@@ -88,6 +94,11 @@ object GeofenceManager {
             Log.d(TAG, "Removed geofence $reminderId")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to remove geofence $reminderId", e)
+        }
+
+        // Stop the monitor service if no geofences remain.
+        if (GeofencePrefs.getActiveCount(context) == 0) {
+            GeofenceMonitorService.stopMonitoring(context)
         }
     }
 

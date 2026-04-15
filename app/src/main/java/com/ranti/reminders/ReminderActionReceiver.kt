@@ -8,6 +8,12 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import com.ranti.location.GeofenceMonitorService
+import com.ranti.location.GeofencePrefs
+import com.ranti.network.RantiApi
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -39,6 +45,27 @@ class ReminderActionReceiver : BroadcastReceiver() {
 
         // Cancel any pending alarm for this reminder
         ReminderScheduler.cancel(context, id)
+
+        // Clean up geofence data if this was a location reminder.
+        GeofencePrefs.remove(context, id)
+        if (GeofencePrefs.getActiveCount(context) == 0) {
+            GeofenceMonitorService.stopMonitoring(context)
+        }
+
+        // Update the backend status to 'dismissed' so it moves to History.
+        // goAsync() extends the receiver's lifecycle for the network call.
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val api = RantiApi(context)
+                api.markDone(id)
+                Log.d(TAG, "Marked reminder $id as done on backend")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to mark reminder $id as done on backend", e)
+            } finally {
+                pendingResult.finish()
+            }
+        }
     }
 
     private fun handleSnooze(context: Context, id: String, body: String) {
@@ -96,3 +123,4 @@ class ReminderActionReceiver : BroadcastReceiver() {
         private const val SNOOZE_DURATION_MS = 10 * 60 * 1000L // 10 minutes
     }
 }
+

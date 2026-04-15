@@ -17,7 +17,6 @@ import com.ranti.network.DisambiguationDto
 import com.ranti.network.PlaceOption
 import com.ranti.network.RantiApi
 import com.ranti.reminders.ReminderScheduler
-import com.ranti.service.WakeWordService
 import com.ranti.ui.components.BubbleSender
 import com.ranti.ui.components.OrbState
 import com.ranti.voice.SpeechRecognizerManager
@@ -101,8 +100,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun cancelVoice() {
         speech.cancel()
         tts.stop()
-        // Hand the mic back to the wake-word service.
-        WakeWordService.resumeEngine(getApplication())
         _state.update {
             it.copy(
                 inputMode = InputMode.Text,
@@ -133,18 +130,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             }
             return
         }
-        // Tell the wake-word service to release the mic so SpeechRecognizer
-        // can actually capture audio. The service's AudioRecordingCallback
-        // would catch this eventually anyway, but the explicit call avoids
-        // a race where SpeechRecognizer fails to initialise.
-        WakeWordService.pauseEngine(getApplication())
-
         speech.start { transcript ->
             if (transcript.isNullOrBlank()) {
-                // Stay in voice mode so the user can tap to retry — error text
-                // is already surfaced via [voiceError]. Hand the mic back so
-                // the wake word still works.
-                WakeWordService.resumeEngine(getApplication())
                 return@start
             }
             sendInternal(transcript, InputMode.Voice)
@@ -237,7 +224,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
             // SPEC §6.3 — only speak voice-mode replies.
             if (mode == InputMode.Voice) {
                 tts.speak(replyText)
-                WakeWordService.resumeEngine(getApplication())
             }
         }
     }
@@ -297,9 +283,6 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
         speech.destroy()
         tts.shutdown()
-        // Make sure we don't leave the wake-word service paused if the
-        // ViewModel dies while voice mode was active.
-        WakeWordService.resumeEngine(getApplication())
     }
 
     private fun initialState() = ChatState(

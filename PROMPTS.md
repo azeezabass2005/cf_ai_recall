@@ -74,7 +74,7 @@ The `VoiceOrb` component should support four states — Idle, Listening, Process
 
 ## Phase 4 — Voice Input & Wake Word (§6)
 
-> **Covers:** Milestone 3 — SpeechRecognizerManager, TextToSpeechManager, WakeWordService, BootReceiver
+> **Covers:** Milestone 3 — SpeechRecognizerManager, TextToSpeechManager, in-app wake word detection
 
 ---
 
@@ -84,11 +84,7 @@ Implement the full voice pipeline for Ranti.
 
 **TextToSpeechManager** — wraps `android.speech.tts.TextToSpeech` with a `speak(text)` suspend function that waits for the utterance to complete before returning. Choose a warm, slightly faster-than-default speech rate (0.95×). The `VoiceOrb` should enter `Speaking` state while TTS is active.
 
-**WakeWordService** — a foreground service (`FOREGROUND_SERVICE_MICROPHONE`) that runs `VoskWakeWordEngine` continuously. When "Hi Ranti" is detected, it should behave exactly like Bixby or Google Assistant: if the app is in the foreground, bring it to the front immediately in listening mode. If the phone is locked or the app is in the background, launch the activity directly (using the foreground service BAL exemption) — do not just post a notification and wait for a tap. Post a persistent notification ("Say 'Hi Ranti' anytime") to satisfy the foreground service requirement, and a brief heads-up notification ("Ranti heard you") only as a last resort if the direct launch is blocked.
-
-**BootReceiver** — restarts `WakeWordService` after a device reboot if the user had it enabled when they last used the app.
-
-Wire wake word activations into `ChatViewModel` via a `wakeEvents` `StateFlow<Int>` — the service bumps a counter, the screen observes and enters voice mode.
+**In-App Wake Word** — the wake word engine runs only while the app is open. When "Hi Recall" is detected on the test/settings screen, it triggers voice mode. No background service — the wake word is purely an in-app convenience for hands-free interaction while the app is visible.
 
 ---
 
@@ -118,25 +114,8 @@ Wire an exact alarm permission card into the onboarding `PermissionsScreen` so u
 
 ---
 
-## Phase 6 — Wake Word Reliability & Direct Launch (post-§6 refinement)
 
-> **Covers:** Fixes after real-world testing — mic always active, sensitivity issues, Bixby-style direct launch
-
----
-
-After testing Ranti on a Samsung device I noticed three issues that need to be fixed before this is production-ready.
-
-**First,** the microphone is always open, which prevents Bixby and Google Assistant from working properly. Unlike those assistants, Ranti's `VoskWakeWordEngine` holds the `AudioRecord` open continuously with no duty cycling. I need the engine to listen continuously but release the mic if another app requests it — use `AudioRecord`'s conflict callback or a similar mechanism. Alternatively, if the current Vosk grammar-mode approach is simply too aggressive, let me know and propose a better free alternative.
-
-**Second,** the wake phrase sensitivity is noticeably lower than Bixby or Google — I sometimes have to say "Hi Ranti" twice. The Vosk grammar model should match the phrase if any of the recognized words form a substring of the wake phrase (for medium and high sensitivity), rather than requiring an exact token match. For low sensitivity, keep exact matching. Also add negative phrase rejection so common filler words alone don't trigger a false positive.
-
-**Third,** when Ranti detects the wake word it only shows a notification requiring a tap — it should launch directly into listening mode the way Bixby does, even from the lock screen. Use the foreground service BAL exemption to call `startActivity()` directly. If that is blocked (lock screen, no activity focus), post the heads-up notification as a fallback only, and auto-dismiss it after 10 seconds so it does not clutter the notification shade.
-
-Please fix all three issues. Keep the duty-cycle removal simple — if the architecture needs to change significantly, tell me what the trade-off is before rewriting it.
-
----
-
-## Phase 7 — Reminder Management Screens & Notification Actions (§11 · §12)
+## Phase 6 — Reminder Management Screens & Notification Actions (§11 · §12)
 
 > **Covers:** Milestone 8 — in-app reminder list, detail, and form; Milestone 9 — Done/Snooze notification actions
 
@@ -168,7 +147,7 @@ Upgrade `ReminderReceiver.showNotification()` to include two action buttons on e
 
 ---
 
-## Phase 8 — Settings & Preferences + Worker Architecture Docs (§13 · §14)
+## Phase 7 — Settings & Preferences + Worker Architecture Docs (§13 · §14)
 
 > **Covers:** Milestone 10 — all settings screens; §14 rewritten from Rust to TypeScript Worker architecture
 
@@ -197,7 +176,7 @@ Replace the Rust JNI/module section entirely with four subsections: Module Respo
 
 ---
 
-## Phase 9 — Location-Based Reminders (§8)
+## Phase 8 — Location-Based Reminders (§8)
 
 > **Covers:** Milestone 5 — Google Places integration, geofence registration, location-triggered reminders
 
@@ -221,7 +200,7 @@ Wire `play-services-location` in Gradle. When `ChatViewModel` receives a reminde
 
 ---
 
-## Phase 10 — Location Disambiguation (§9)
+## Phase 9 — Location Disambiguation (§9)
 
 > **Covers:** Milestone 6 — multi-result place resolution, disambiguation UI, Haversine compaction
 
@@ -243,7 +222,7 @@ Wire `DisambiguationSheet` into `ChatScreen` — it appears whenever `ChatViewMo
 
 ---
 
-## Phase 11 — Location Nicknames (§10)
+## Phase 10 — Location Nicknames (§10)
 
 > **Covers:** Milestone 7 — nickname CRUD, agent nickname flow, nickname management screens
 
@@ -269,11 +248,9 @@ Add `listNicknames`, `saveNickname`, and `deleteNickname` methods to `RantiApi.k
 
 ---
 
-## Phase 12 — Data Models & Typed Queries (§15)
+## Phase 11 — Data Models & Typed Queries (§15)
 
 > **Covers:** §15 rewritten from Rust to TypeScript, centralized `db/queries.ts` module, tool handler refactor
-
-> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent.
 
 ---
 
@@ -293,11 +270,9 @@ Replace all Rust `struct`/`enum` definitions with TypeScript `interface`/`type` 
 
 ---
 
-## Phase 13 — Agent Tools & Intent Resolution Docs (§16)
+## Phase 12 — Agent Tools & Intent Resolution Docs (§16)
 
 > **Covers:** §16 rewritten from v1.0 regex pipeline to LLM tool-calling architecture
-
-> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent.
 
 ---
 
@@ -317,11 +292,9 @@ Replace all Rust `struct`/`enum` definitions with TypeScript `interface`/`type` 
 
 ---
 
-## Phase 14 — Android-Specific Behaviors Docs (§17)
+## Phase 13 — Android-Specific Behaviors Docs (§17)
 
 > **Covers:** Updating §17 offline assumptions to match v1.1 Cloudflare design
-
-> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent.
 
 ---
 
@@ -335,11 +308,9 @@ Section §17 of SPEC.md contains outdated assumptions from the v1.0 "local-first
 
 ---
 
-## Phase 15 — Third-Party SDK Docs (§18)
+## Phase 14 — Third-Party SDK Docs (§18)
 
 > **Covers:** Removing abandoned v1.0 Rust architecture and Google Places SDK references
-
-> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent.
 
 ---
 
@@ -350,11 +321,9 @@ Section §18 in the SPEC contains massive bleed-over from the v1.0 architecture.
 
 ---
 
-## Phase 16 — Screen Inventory Verification (§19)
+## Phase 15 — Screen Inventory Verification (§19)
 
 > **Covers:** Verifying §19 Screen Inventory against actual `Routes.kt` and screen files
-
-> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent.
 
 ---
 
@@ -366,11 +335,9 @@ Section §18 in the SPEC contains massive bleed-over from the v1.0 architecture.
 
 ---
 
-## Phase 17 — UI Refinement
+## Phase 16 — UI Refinement
 
 > **Covers:** Updating theme tokens, components, and PROMPTS.md for a clean, sleek, and mature aesthetic.
-
-> **Note:** All prompts below were refined and expanded using an LLM before being fed to the coding agent.
 
 ---
 
@@ -381,3 +348,43 @@ Adjust the Typography to rely on SemiBold instead of Bold for headings, creating
 Increase corner radii on panels and bubbles for a smoother squircle aesthetic, and increase inner paddings across components like the ReminderCard and ChatBubbles.
 Enhance the VoiceOrb with more sophisticated idle and active gradient glow styling, giving it a subtle 3D depth instead of a flat look.
 Finally, do not forget to update this `PROMPTS.md` document to record this phase.
+
+---
+
+## Phase 17 — Nominatim Places Migration
+
+> **Covers:** Replacing Google Places API with OpenStreetMap Nominatim to remove API key restrictions.
+
+---
+
+The Google Places API requirement is causing friction because it requires setting up a credit card in Google Cloud. I want to replace the `handleResolvePlace` function in `worker/src/tools/places.ts` entirely.
+
+Instead of Google, call the **OpenStreetMap Nominatim Search API** (`https://nominatim.openstreetmap.org/search`).
+Pass the query via `q=...` and restrict output to JSON with `format=json`. Since Nominatim has strict usage policies, ensure there is a unique `User-Agent` header sent with the `fetch` request (e.g. `RantiWorker/1.0`). To replicate the proximity bias setting originally provided by Google Places, use the `viewbox` and `bounded=0` parameters based on the incoming `bias_lat` and `bias_lng`.
+
+Map the returned generic JSON fields (`place_id`, `display_name`, `lat`, `lon`) into the app's `PlaceResult` interface. Please document this decision and update `PROMPTS.md`.
+
+---
+
+## Phase 18 — PocketSphinx Wake Word Migration
+
+> **Covers:** Replacing the non-functional Vosk-based in-app wake word engine with CMU PocketSphinx for reliable keyword spotting.
+
+---
+
+The current Vosk-based wake word engine is not working — it never detects the phrase. Switch to **PocketSphinx** for the in-app wake word instead of Vosk.
+
+There is an example app cloned from GitHub that uses PocketSphinx — go one level out from this project folder into `Desktop/frontend-hassle` and you'll find a folder called `wakewordapp`. Learn from it.
+
+Download `pocketsphinx-android-5prealpha-release.aar` and bundle it in `app/libs/` — reference it as `implementation(files("libs/pocketsphinx-android-5prealpha-release.aar"))`. No JitPack or Maven Central needed, just a direct file reference.
+
+Copy the acoustic model assets from the wakewordapp — the `en-us-ptm` folder and the `words.dic` dictionary — into `app/src/main/assets/sync/models/` following the same structure PocketSphinx's `Assets.syncAssets()` mechanism expects. It reads `assets/sync/assets.lst`, checks MD5 hashes, and syncs changed files to device storage on first run.
+
+Create a `keywords.list` file with both `hi recall` and `hey recall` as detection phrases. Write the threshold values dynamically at runtime based on the user's sensitivity setting and put the file in `context.cacheDir` so it can be regenerated without touching the bundled assets.
+
+Replace `VoskWakeWordEngine` entirely with a new `PocketSphinxWakeWordEngine` implementing the same `WakeWordEngine` interface. PocketSphinx manages its own internal audio thread so there is no manual `AudioRecord` loop — `start()` should sync assets on a background thread and call `SpeechRecognizerSetup.defaultSetup()` to build the recognizer, `pause()` calls `recognizer.cancel()` to cleanly release the mic, and `resume()` calls `startListening` again without rebuilding the model.
+
+Delete `VoskWakeWordEngine.kt` and the 68 MB `model-en-us/` Vosk asset folder. Update the `createDefaultEngine` factory in `WakeWordEngine.kt` to return the new engine.
+
+Also update this `PROMPTS.md`.
+

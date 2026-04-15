@@ -87,7 +87,7 @@ fun AboutScreen(onNavigateBack: () -> Unit) {
                         }
                         Spacer(Modifier.height(Spacing.sm))
                         Text(
-                            "Ranti processes your voice on-device using Vosk. Your reminders sync with your personal Cloudflare Worker — no third-party servers see your data.",
+                            "Ranti processes your voice on-device using PocketSphinx. Your reminders sync with your personal Cloudflare Worker — no third-party servers see your data.",
                             style = MaterialTheme.typography.bodySmall,
                             color = ranti.textMid,
                         )

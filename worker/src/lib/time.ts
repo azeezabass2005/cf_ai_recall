@@ -139,6 +139,7 @@ function normalise(expr: string): string {
     .toLowerCase()
     .trim()
     .replace(/[,\.](?=\s|$)/g, " ")
+    .replace(/\beveryday\b/g, "every day")
     .replace(/\s+/g, " ");
 }
 

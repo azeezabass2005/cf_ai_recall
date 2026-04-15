@@ -6,21 +6,22 @@ import android.content.Context
  * SPEC §6.1 — abstraction over a wake-word detector so the rest of the app
  * doesn't depend on the engine implementation directly.
  *
- * The real implementation is [VoskWakeWordEngine] which uses Vosk's offline
- * grammar-mode recognizer constrained to "hi ranti" / "hey ranti". It runs
- * an AudioRecord loop on a background thread — no network, no API keys.
+ * The real implementation is [PocketSphinxWakeWordEngine] which uses CMU
+ * PocketSphinx offline keyword-spotting constrained to "hi recall" / "hey
+ * recall". It runs PocketSphinx's own internal audio thread — no network,
+ * no API keys, no continuous AudioRecord in our code.
  *
- * [NoopWakeWordEngine] is kept as a fallback for environments where the Vosk
- * model isn't available or for testing scenarios.
+ * [NoopWakeWordEngine] is kept as a fallback for testing scenarios or
+ * environments where the PocketSphinx model fails to load.
  */
 interface WakeWordEngine {
     fun start(onDetected: () -> Unit)
     fun stop()
 
     /**
-     * Release the microphone but keep the model loaded. Used when another
-     * app wants the mic (other assistants, our own SpeechRecognizer in voice
-     * mode, etc.) so we don't block them.
+     * Release the microphone but keep the recognizer loaded.
+     * Used when the chat layer's SpeechRecognizer needs the mic, or when
+     * another assistant (Google, Bixby) is actively capturing audio.
      */
     fun pause()
 
@@ -41,8 +42,8 @@ class NoopWakeWordEngine : WakeWordEngine {
 }
 
 /**
- * Factory used by [com.ranti.service.WakeWordService]. Returns the Vosk-based
- * wake word engine for real "Hi Ranti" detection.
+ * Factory for creating the default wake word engine.
+ * Returns the PocketSphinx-based wake word engine for in-app "Hi Recall" detection.
  */
 fun createDefaultEngine(context: Context): WakeWordEngine =
-    VoskWakeWordEngine(context)
+    PocketSphinxWakeWordEngine(context)

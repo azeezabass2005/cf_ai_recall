@@ -45,8 +45,7 @@ import kotlinx.coroutines.launch
  * Voice input is wired up in milestone §6: the mic icon flips into voice
  * mode and starts a real [com.ranti.voice.SpeechRecognizerManager] session,
  * partial transcripts surface as ghost text under the orb, and Ranti speaks
- * her reply via [com.ranti.voice.TextToSpeechManager]. Wake-word activations
- * from [com.ranti.service.WakeWordService] arrive via [wakeEvents].
+ * her reply via [com.ranti.voice.TextToSpeechManager].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,23 +53,10 @@ fun ChatScreen(
     onOpenReminders: () -> Unit = {},
     onCreateReminder: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
-    wakeEvents: StateFlow<Int> = MutableStateFlow(0),
 ) {
     val vm: ChatViewModel = viewModel()
     val state by vm.state.collectAsStateWithLifecycle()
     val ranti = LocalRantiColors.current
-
-    // SPEC §6.1 — when WakeWordService brings the activity forward, it bumps
-    // a counter on MainActivity. Each new value flips chat into voice mode.
-    LaunchedEffect(wakeEvents) {
-        var seen = wakeEvents.value
-        wakeEvents.collectLatest { value ->
-            if (value != seen) {
-                seen = value
-                vm.onWakeWordDetected()
-            }
-        }
-    }
 
     val snackbarHost = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -135,7 +121,8 @@ fun ChatScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .imePadding(),
         ) {
             // Chat area
             LazyColumn(

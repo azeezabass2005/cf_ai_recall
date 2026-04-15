@@ -118,6 +118,11 @@ class RantiApi(private val context: Context) {
         return json.decodeFromString(ReminderSnoozeResponse.serializer(), response.bodyAsText()).snoozed
     }
 
+    suspend fun markDone(id: String): Boolean {
+        val response = client.post("$baseUrl/reminders/$id/done") { deviceHeaders() }
+        return response.status.value in 200..299
+    }
+
     // ─── Nicknames CRUD (REST, no LLM) ────────────────────────────────
 
     suspend fun listNicknames(): List<NicknameDto> {

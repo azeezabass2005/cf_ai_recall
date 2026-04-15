@@ -3,15 +3,15 @@ package com.ranti.service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import com.ranti.data.OnboardingPrefs
-import kotlinx.coroutines.CoroutineScope
+import com.ranti.location.GeofenceMonitorService
+import com.ranti.location.GeofencePrefs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
 /**
- * SPEC §6.1 — restarts [WakeWordService] after device reboot if the user has
- * the wake word enabled.
+ * Restarts [GeofenceMonitorService] after device reboot if there are pending
+ * location-based reminders.
  */
 class BootReceiver : BroadcastReceiver() {
     @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
@@ -23,8 +23,11 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         GlobalScope.launch(Dispatchers.IO) {
             try {
-                if (OnboardingPrefs.isWakeWordEnabled(context)) {
-                    WakeWordService.start(context)
+                // Restart the active location monitor if there are pending
+                // location-based reminders — without this, only the passive
+                // Geofencing API is active after reboot (30 min – 2h delay).
+                if (GeofencePrefs.getActiveCount(context) > 0) {
+                    GeofenceMonitorService.startMonitoring(context)
                 }
             } finally {
                 pending.finish()
