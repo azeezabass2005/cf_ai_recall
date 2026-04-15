@@ -1,4 +1,4 @@
-# Ranti — App Specification
+# Recall — App Specification
 
 **Version 1.1 | April 2026 | Android (Kotlin UI) + Cloudflare Workers (TypeScript Agent)**
 
@@ -21,7 +21,7 @@
 | Location        | Google Places API (called from the Worker) + Android Geofencing API (on device) |
 | Notifications   | Android AlarmManager + NotificationManager |
 | TTS             | Android TextToSpeech API                 |
-| Auth (MVP)      | Anonymous device-bound token (`X-Ranti-Device` header) |
+| Auth (MVP)      | Anonymous device-bound token (`X-Recall-Device` header) |
 | Design System   | See `DESIGN_SYSTEM.md`                   |
 
 ---
@@ -35,14 +35,14 @@
 | §3 File Structure & Screen Map | ✅ Done — directory layout matches spec |
 | §4 Milestone 1 — Onboarding & Permissions | ✅ Done — 4 screens, runtime permission flow, first-launch routing |
 | §5 Milestone 2 — Conversation Interface (Chat) | ✅ Done — ChatScreen, ChatBubble, ChatViewModel, text/voice input modes, typing indicator |
-| §6 Milestone 3 — Voice Input & Wake Word | ✅ Done — SpeechRecognizerManager, TextToSpeechManager, WakeWordService + VoskWakeWordEngine (real "Hi Ranti" detection), BootReceiver, voice mode wired into ChatViewModel |
+| §6 Milestone 3 — Voice Input & Wake Word | ✅ Done — SpeechRecognizerManager, TextToSpeechManager, WakeWordService + VoskWakeWordEngine (real "Hi Recall" detection), BootReceiver, voice mode wired into ChatViewModel |
 | §7 Milestone 4 — Time-Based Reminders | ✅ Done — Cloudflare Agent tool-use loop with create/list/delete/update/pause/resume/resolve_time tools, timezone-aware time + recurrence parser (`worker/src/lib/time.ts`), D1-backed reminder storage, Android ReminderScheduler + ReminderReceiver with AlarmManager.setExactAndAllowWhileIdle and local recurrence rescheduling |
 | §8 Milestone 5 — Location-Based Reminders | ✅ Done — Google Places Text Search (New) API in `places.ts`, `create_reminder` accepts lat/lng/place_name/place_id, Android GeofenceManager + GeofenceBroadcastReceiver + GeofencePrefs + LocationHelper, play-services-location wired, ChatViewModel registers geofences for location triggers |
 | §9 Milestone 6 — Location Disambiguation | ✅ Done — Agent `resolve_place` tool returns 0–3 results with Haversine 50m compaction, `disambiguation` field in chat response, `DisambiguationSheet` ModalBottomSheet in ChatScreen, user pick sent back as chat message |
 | §10 Milestone 7 — Location Nicknames | ✅ Done — D1-backed `save_nickname`/`get_nicknames`/`delete_nickname` handlers with UPSERT, REST `/nicknames` CRUD routes, agent system prompt with nickname flow, NicknamesScreen (list + delete), NicknameEditScreen (create with place search via `/resolve-place`), NavGraph wired |
-| §11 Milestone 8 — Reminder Management | ✅ Done — Worker REST endpoints live, RantiApi CRUD methods, RemindersScreen (3 tabs, swipe-to-delete, pull-to-refresh), ReminderDetailScreen, ReminderFormScreen (create + edit), ReminderCard component, RemindersViewModel |
+| §11 Milestone 8 — Reminder Management | ✅ Done — Worker REST endpoints live, RecallApi CRUD methods, RemindersScreen (3 tabs, swipe-to-delete, pull-to-refresh), ReminderDetailScreen, ReminderFormScreen (create + edit), ReminderCard component, RemindersViewModel |
 | §12 Milestone 9 — Notification & Firing | ✅ Done — Done + Snooze 10 min action buttons, ReminderActionReceiver, upgraded notification channel with alarm audio attributes and vibration |
-| §13 Settings & Preferences | ✅ Done — SettingsScreen, WakeWordSettingsScreen, VoiceSettingsScreen, NotificationSettingsScreen, LocationSettingsScreen, AboutScreen; theme pref wired to RantiTheme via DataStore; all routes wired in NavGraph |
+| §13 Settings & Preferences | ✅ Done — SettingsScreen, WakeWordSettingsScreen, VoiceSettingsScreen, NotificationSettingsScreen, LocationSettingsScreen, AboutScreen; theme pref wired to RecallTheme via DataStore; all routes wired in NavGraph |
 | §14 Worker / Agent Architecture | ✅ Done — TypeScript architecture documented (replaces Rust section); module table, agent-loop state machine, HTTP API table, D1 schema overview |
 | §15 Data Models | ✅ Done — TypeScript types in `worker/src/lib/types.ts`, typed D1 query helpers in `worker/src/db/queries.ts`, Kotlin DTOs in `app/.../network/ApiModels.kt` |
 | §16 Agent Tools & Intent Resolution | ✅ Done — 10-tool inventory, intent-to-tool mapping, system prompt rules, fuzzy matching |
@@ -76,7 +76,7 @@
 
 ## 1. Architecture Overview
 
-Ranti uses a **thin client, agent backend** architecture. The Android (Kotlin/Compose) app handles UI, platform APIs (microphone, GPS, alarms, geofences, notifications), and lifecycle. All language understanding and reminder orchestration lives in a **TypeScript agent on Cloudflare Workers**, built with the Cloudflare Agents SDK. The agent is LLM-driven — it interprets natural language by *calling tools*, not by running a hand-rolled regex parser.
+Recall uses a **thin client, agent backend** architecture. The Android (Kotlin/Compose) app handles UI, platform APIs (microphone, GPS, alarms, geofences, notifications), and lifecycle. All language understanding and reminder orchestration lives in a **TypeScript agent on Cloudflare Workers**, built with the Cloudflare Agents SDK. The agent is LLM-driven — it interprets natural language by *calling tools*, not by running a hand-rolled regex parser.
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -87,7 +87,7 @@ Ranti uses a **thin client, agent backend** architecture. The Android (Kotlin/Co
 │  └───┬───┘ └───┬───┘ └───┬────┘ └───┬────┘ │
 │      │         │         │          │      │
 │  ┌───┴─────────┴─────────┴──────────┴───┐  │
-│  │   RantiApi (HTTP client + cache)    │  │
+│  │   RecallApi (HTTP client + cache)    │  │
 │  └─────────────────┬────────────────────┘  │
 │                    │                        │
 │  ┌─────────────────┴────────────────────┐  │
@@ -98,7 +98,7 @@ Ranti uses a **thin client, agent backend** architecture. The Android (Kotlin/Co
 │  └──────────────────────────────────────┘  │
 └────────────────────┬────────────────────────┘
                      │ HTTPS (JSON)
-                     │ X-Ranti-Device: <uuid>
+                     │ X-Recall-Device: <uuid>
                      ▼
 ┌─────────────────────────────────────────────┐
 │       Cloudflare Worker — TypeScript        │
@@ -113,7 +113,7 @@ Ranti uses a **thin client, agent backend** architecture. The Android (Kotlin/Co
 │  └───────────────┬───────────────────────┘  │
 │                  │                          │
 │  ┌───────────────┴───────────────────────┐  │
-│  │  RantiAgent (Durable Object)          │  │
+│  │  RecallAgent (Durable Object)          │  │
 │  │  one instance per device id           │  │
 │  │  • holds conversation context         │  │
 │  │  • runs LLM with tool use loop        │  │
@@ -150,17 +150,17 @@ Ranti uses a **thin client, agent backend** architecture. The Android (Kotlin/Co
 ### Why a tool-calling agent (and not the v1.0 regex parser)
 
 The original spec used a deterministic regex pipeline with an LLM as a *fallback*. v1.1 inverts that: the LLM is the primary path, and tools are the only way it can affect the world. Reasons:
-- Ranti's surface area is small (~9 verbs) — perfect for a tool-use loop.
+- Recall's surface area is small (~9 verbs) — perfect for a tool-use loop.
 - Multi-turn flows (disambiguation, nickname capture, "cancel the Shoprite reminder") collapse into one consistent mechanism instead of a hand-coded state machine.
 - Adding a new capability later means adding a new tool, not editing the parser.
 
 ### Network Bridge
 
-The Android app talks to the Worker over plain HTTPS with a JSON body. There is no JNI, no native library, no FFI. Identity is a per-install UUID sent in the `X-Ranti-Device` header — generated on first launch, persisted in DataStore, never collected anywhere else.
+The Android app talks to the Worker over plain HTTPS with a JSON body. There is no JNI, no native library, no FFI. Identity is a per-install UUID sent in the `X-Recall-Device` header — generated on first launch, persisted in DataStore, never collected anywhere else.
 
 ```kotlin
-// Kotlin side — see app/src/main/java/com/ranti/network/RantiApi.kt
-interface RantiApi {
+// Kotlin side — see app/src/main/java/com/recall/network/RecallApi.kt
+interface RecallApi {
     suspend fun chat(message: ChatRequest): ChatResponse                // POST /chat
     suspend fun listReminders(filter: String): List<Reminder>           // GET  /reminders?filter=
     suspend fun createReminder(form: ReminderForm): Reminder            // POST /reminders   (manual form)
@@ -195,7 +195,7 @@ When the Worker creates or updates a time/location reminder, the response includ
 
 ## 2. Navigation Architecture
 
-The app uses **Jetpack Navigation Compose** with a simple navigation graph. There are no bottom tabs — Ranti's primary interface is the conversation screen, but the app is fully usable without ever speaking a word. Voice is the *fastest* way in; the screens are the *complete* way in.
+The app uses **Jetpack Navigation Compose** with a simple navigation graph. There are no bottom tabs — Recall's primary interface is the conversation screen, but the app is fully usable without ever speaking a word. Voice is the *fastest* way in; the screens are the *complete* way in.
 
 ```
 NavGraph
@@ -244,8 +244,8 @@ NavGraph
 
 ```
 app/src/main/
-  java/com/ranti/
-    RantiApp.kt                       ← Application class, DI setup
+  java/com/recall/
+    RecallApp.kt                       ← Application class, DI setup
     MainActivity.kt                   ← Single activity, hosts Compose NavHost
     
     navigation/
@@ -320,12 +320,12 @@ app/src/main/
       NotificationHelper.kt           ← Notification creation
     
     network/
-      RantiApi.kt                      ← Retrofit/Ktor HTTP client to the Worker
+      RecallApi.kt                      ← Retrofit/Ktor HTTP client to the Worker
       ApiModels.kt                     ← DTOs (request/response shapes for /chat, /reminders, /nicknames)
-      DeviceId.kt                      ← Generates + persists per-install UUID for X-Ranti-Device header
+      DeviceId.kt                      ← Generates + persists per-install UUID for X-Recall-Device header
 
     data/
-      ReminderRepository.kt            ← Wraps RantiApi + Room cache, single source of truth for the UI
+      ReminderRepository.kt            ← Wraps RecallApi + Room cache, single source of truth for the UI
       NicknameRepository.kt
       LocalCache.kt                    ← Room database for offline reads
     
@@ -352,7 +352,7 @@ worker/
   src/
     index.ts                           ← Hono router; mounts /chat (agent) and REST handlers
 
-    agent.ts                           ← RantiAgent class — extends Agent from `agents` SDK
+    agent.ts                           ← RecallAgent class — extends Agent from `agents` SDK
                                           Holds conversation state, runs LLM tool-use loop.
 
     tools/
@@ -376,7 +376,7 @@ worker/
     lib/
       types.ts                         ← Shared TS types (Reminder, Nickname, RecurrenceRule, …)
       time.ts                          ← Recurrence rule evaluator (computes next occurrence)
-      auth.ts                          ← X-Ranti-Device extraction + device row upsert
+      auth.ts                          ← X-Recall-Device extraction + device row upsert
       llm.ts                           ← Anthropic client wrapper (model selection, retries)
       errors.ts                        ← Typed error responses
 
@@ -391,7 +391,7 @@ The Worker has no on-device counterpart — it is the entire backend. The Androi
 
 ## 4. Milestone 1 — Onboarding & Permissions
 
-> **Status: ✅ Done.** All four screens implemented in `app/src/main/java/com/ranti/ui/screens/onboarding/`. First-launch routing wired through `MainActivity` + `OnboardingPrefs` (DataStore). Runtime permission requests via the activity-result API. Wake word screen uses the real `VoskWakeWordEngine` for the "Test wake word" flow — detection is live, not simulated. Sensitivity setting persists to DataStore.
+> **Status: ✅ Done.** All four screens implemented in `app/src/main/java/com/recall/ui/screens/onboarding/`. First-launch routing wired through `MainActivity` + `OnboardingPrefs` (DataStore). Runtime permission requests via the activity-result API. Wake word screen uses the real `VoskWakeWordEngine` for the "Test wake word" flow — detection is live, not simulated. Sensitivity setting persists to DataStore.
 
 **Goal:** Get the user through permissions setup and into the chat screen in under 60 seconds.
 
@@ -401,7 +401,7 @@ The Worker has no on-device counterpart — it is the entire backend. The Androi
 
 | Element              | Detail                                              |
 | -------------------- | --------------------------------------------------- |
-| Hero                 | Ranti logo (voice orb visual) + tagline "Remember everything. Say it once." |
+| Hero                 | Recall logo (voice orb visual) + tagline "Remember everything. Say it once." |
 | Illustration         | Warm, minimal illustration of someone speaking to their phone hands-free |
 | Primary CTA          | `Button` variant=Primary, label="Get Started" → navigates to `permissions` |
 | Design               | `bg: base`, centered content, `display` variant for tagline |
@@ -410,7 +410,7 @@ The Worker has no on-device counterpart — it is the entire backend. The Androi
 
 | Element              | Detail                                              |
 | -------------------- | --------------------------------------------------- |
-| Title                | "Ranti needs a few things to work properly"          |
+| Title                | "Recall needs a few things to work properly"          |
 | Permission cards     | Each permission shown as a `Card` with icon, title, explanation, and toggle/grant button |
 | Permissions          | See table below                                      |
 | Progress             | Visual indicator showing how many permissions granted |
@@ -437,16 +437,16 @@ The Worker has no on-device counterpart — it is the entire backend. The Androi
 
 | Element              | Detail                                              |
 | -------------------- | --------------------------------------------------- |
-| Title                | "Say 'Hi Ranti' to test"                            |
+| Title                | "Say 'Hi Recall' to test"                            |
 | VoiceOrb             | Large `VoiceOrb` in `Listening` state                |
-| Instructions         | "Try saying 'Hi Ranti' — I should respond right away" |
-| Test result          | On detection: orb transitions to `Speaking`, Ranti says "I'm here! That worked perfectly." |
+| Instructions         | "Try saying 'Hi Recall' — I should respond right away" |
+| Test result          | On detection: orb transitions to `Speaking`, Recall says "I'm here! That worked perfectly." |
 | Sensitivity slider   | "Sensitivity" — Low / Medium / High, default Medium  |
 | Skip option          | "Skip — I'll use the app manually" → disables wake word service |
 | CTA                  | "Sounds Good" → navigates to `ready`                 |
 
 **Behavior:**
-- Vosk grammar-mode recognizer is initialized with the "Hi Ranti" keyword
+- Vosk grammar-mode recognizer is initialized with the "Hi Recall" keyword
 - Sensitivity slider adjusts the engine's sensitivity parameter (0.3 / 0.5 / 0.7)
 - The test runs for up to 30 seconds before showing "I didn't hear that. Try again?" with a retry button
 
@@ -455,29 +455,29 @@ The Worker has no on-device counterpart — it is the entire backend. The Androi
 | Element              | Detail                                              |
 | -------------------- | --------------------------------------------------- |
 | Title                | "You're all set"                                     |
-| Body                 | "Just say 'Hi Ranti' anytime, or open the app and type. I'll remember so you don't have to." |
+| Body                 | "Just say 'Hi Recall' anytime, or open the app and type. I'll remember so you don't have to." |
 | Tips                 | 3 example prompts shown as `ChatBubble` previews: "Remind me to call mum at 7pm", "Remind me to buy eggs when I get to Shoprite", "Remind me to check the pot in 15 minutes" |
-| CTA                  | "Start Using Ranti" → navigates to `chat/index`, starts `WakeWordService` |
+| CTA                  | "Start Using Recall" → navigates to `chat/index`, starts `WakeWordService` |
 
 ---
 
 ## 5. Milestone 2 — Conversation Interface (Chat)
 
-> **Status (✅ Done):** `ChatScreen`, `ChatBubble`, and `ChatViewModel` are wired up with text-mode input, an in-memory message list, auto-scrolling `LazyColumn`, a `TypingIndicator`, and the voice-mode UI (orb + keyboard toggle). Sending hits the worker `/chat` endpoint via `RantiApi`, which currently echoes — that's fine, the response shape is correct. **Deferred:** server-side message persistence to D1 lands in §7; the Reminders / + / Settings header buttons currently show snackbars pointing at §11/§13.
+> **Status (✅ Done):** `ChatScreen`, `ChatBubble`, and `ChatViewModel` are wired up with text-mode input, an in-memory message list, auto-scrolling `LazyColumn`, a `TypingIndicator`, and the voice-mode UI (orb + keyboard toggle). Sending hits the worker `/chat` endpoint via `RecallApi`, which currently echoes — that's fine, the response shape is correct. **Deferred:** server-side message persistence to D1 lands in §7; the Reminders / + / Settings header buttons currently show snackbars pointing at §11/§13.
 
-**Goal:** The primary screen where users interact with Ranti via text or voice.
+**Goal:** The primary screen where users interact with Recall via text or voice.
 
 ### 5.1 Chat Screen — `chat/ChatScreen.kt`
 
-This is Ranti's home screen. It is a **chat-style interface** where the user speaks or types, and Ranti responds conversationally. This is not a settings panel or a form — it's a conversation.
+This is Recall's home screen. It is a **chat-style interface** where the user speaks or types, and Recall responds conversationally. This is not a settings panel or a form — it's a conversation.
 
 | Element              | Detail                                              |
 | -------------------- | --------------------------------------------------- |
-| Header               | "Ranti" title (left) + Reminders list icon + `+` FAB (→ `reminders/new`) + Settings gear icon (right) |
+| Header               | "Recall" title (left) + Reminders list icon + `+` FAB (→ `reminders/new`) + Settings gear icon (right) |
 | Chat area            | Scrollable list of `ChatBubble` components (newest at bottom) |
 | Input bar            | Text `Input` + mic toggle icon + send button         |
 | Voice orb            | `VoiceOrb` replaces the input bar when mic is active |
-| Empty state          | First launch: Ranti's welcome message as a `ChatBubble` — "Hi! I'm Ranti. Tell me what to remember and when, and I'll make sure you don't forget." |
+| Empty state          | First launch: Recall's welcome message as a `ChatBubble` — "Hi! I'm Recall. Tell me what to remember and when, and I'll make sure you don't forget." |
 
 **Input bar layout:**
 
@@ -503,7 +503,7 @@ When mic is tapped:
 2. User's message appears as `ChatBubble(sender=User)`
 3. Input is sent to Rust core via `processUserInput()`
 4. Rust core parses intent, creates reminder, returns response JSON
-5. Ranti's response appears as `ChatBubble(sender=Ranti)`: "Okay, reminder set for 7:00 PM — Call your mum."
+5. Recall's response appears as `ChatBubble(sender=Recall)`: "Okay, reminder set for 7:00 PM — Call your mum."
 6. A `Toast(type=Success)` briefly confirms: "Reminder saved"
 
 **Chat flow — voice input:**
@@ -513,11 +513,11 @@ When mic is tapped:
 3. Android `SpeechRecognizer` captures speech, converts to text
 4. Transcribed text appears as `ChatBubble(sender=User)`
 5. Same flow as text input from step 3 onward
-6. Ranti also speaks the response via Android TTS
+6. Recall also speaks the response via Android TTS
 
 **Chat flow — wake word activation:**
 
-1. `WakeWordService` detects "Hi Ranti"
+1. `WakeWordService` detects "Hi Recall"
 2. App is brought to foreground (or notification shade prompt if locked)
 3. `VoiceOrb` is already in `Listening` state
 4. User speaks their reminder
@@ -530,9 +530,9 @@ If the Rust core determines the input is incomplete or ambiguous, it returns a r
 Example:
 ```
 User: "Remind me to buy eggs when I get to the market"
-Ranti: "Which market? I found Oja Oba Market (2.3 km) and Oja Tuntun (4.1 km). Which one?"
+Recall: "Which market? I found Oja Oba Market (2.3 km) and Oja Tuntun (4.1 km). Which one?"
 User: "Oja Oba"
-Ranti: "Got it. I'll remind you to buy eggs when you're near Oja Oba Market."
+Recall: "Got it. I'll remind you to buy eggs when you're near Oja Oba Market."
 ```
 
 The Rust core tracks conversation context so follow-up responses are tied to the original intent.
@@ -557,9 +557,9 @@ The Rust core tracks conversation context so follow-up responses are tied to the
 
 ## 6. Milestone 3 — Voice Input & Wake Word
 
-> **Status (✅ Done):** Real `SpeechRecognizerManager` (Android `SpeechRecognizer`, en-NG with platform fallback, partial results, 2s silence auto-stop) and `TextToSpeechManager` (Android TTS, 0.95x speed, voice-only replies) are wired through `ChatViewModel`. Tapping the mic flips chat into voice mode and starts a real recognizer session; the partial transcript renders under the orb; the final transcript flows through the same `/chat` path; Ranti's reply is spoken back when the input was voice. `WakeWordService` ships as a `microphone` foreground service with persistent low-priority notification, started/stopped from the onboarding screen and on app launch from the saved pref, and `BootReceiver` restarts it after reboot. Wake-word activations bring `MainActivity` forward via a `singleTop` intent and flip chat into voice mode through a `wakeEvents` flow. The `VoskWakeWordEngine` is fully wired in — it uses Vosk's offline grammar-mode recognizer (constrained to "hi ranti" / "hey ranti") with a bundled `vosk-model-small-en-us-0.15` model (~40 MB). No API keys needed; detection runs entirely on-device.
+> **Status (✅ Done):** Real `SpeechRecognizerManager` (Android `SpeechRecognizer`, en-NG with platform fallback, partial results, 2s silence auto-stop) and `TextToSpeechManager` (Android TTS, 0.95x speed, voice-only replies) are wired through `ChatViewModel`. Tapping the mic flips chat into voice mode and starts a real recognizer session; the partial transcript renders under the orb; the final transcript flows through the same `/chat` path; Recall's reply is spoken back when the input was voice. `WakeWordService` ships as a `microphone` foreground service with persistent low-priority notification, started/stopped from the onboarding screen and on app launch from the saved pref, and `BootReceiver` restarts it after reboot. Wake-word activations bring `MainActivity` forward via a `singleTop` intent and flip chat into voice mode through a `wakeEvents` flow. The `VoskWakeWordEngine` is fully wired in — it uses Vosk's offline grammar-mode recognizer (constrained to "hi recall" / "hey recall") with a bundled `vosk-model-small-en-us-0.15` model (~40 MB). No API keys needed; detection runs entirely on-device.
 
-**Goal:** Users can speak to Ranti hands-free via wake word or by tapping the mic.
+**Goal:** Users can speak to Recall hands-free via wake word or by tapping the mic.
 
 ### 6.1 Wake Word Service — `service/WakeWordService.kt`
 
@@ -567,10 +567,10 @@ The Rust core tracks conversation context so follow-up responses are tied to the
 |--------|--------|
 | Type | Android Foreground Service with persistent notification |
 | Engine | Vosk (grammar-mode keyword spotting, `com.alphacephei:vosk-android`) |
-| Wake word | "Hi Ranti" — grammar-mode recognizer constrained to `["hi ranti", "hey ranti", "[unk]"]` |
+| Wake word | "Hi Recall" — grammar-mode recognizer constrained to `["hi recall", "hey recall", "[unk]"]` |
 | Sensitivity | Configurable: 0.3 (low), 0.5 (medium, default), 0.7 (high) |
 | Lifecycle | Started on app launch (if enabled), survives app backgrounding |
-| Notification | Persistent: "Ranti is listening for 'Hi Ranti'" with tap-to-open action |
+| Notification | Persistent: "Recall is listening for 'Hi Recall'" with tap-to-open action |
 | Battery | Vosk runs on-device, low-power — grammar mode limits CPU usage |
 
 **On wake word detection:**
@@ -580,7 +580,7 @@ The Rust core tracks conversation context so follow-up responses are tied to the
 3. Bring `MainActivity` to foreground via `Intent` with `FLAG_ACTIVITY_NEW_TASK`
 4. `ChatScreen` receives activation event, transitions `VoiceOrb` to `Listening`
 5. `SpeechRecognizer` starts capturing audio
-6. If screen is locked: show heads-up notification "Ranti is listening..." with a full-screen intent
+6. If screen is locked: show heads-up notification "Recall is listening..." with a full-screen intent
 
 **Service lifecycle:**
 
@@ -610,7 +610,7 @@ The Rust core tracks conversation context so follow-up responses are tied to the
 | Ready | `Idle` | Waiting for tap or wake word |
 | Listening | `Listening` | Capturing audio, showing partial text |
 | Processing | `Processing` | Audio captured, sending to Rust core |
-| Speaking | `Speaking` | TTS playing Ranti's response |
+| Speaking | `Speaking` | TTS playing Recall's response |
 | Error | `Idle` | Error message shown, ready to retry |
 
 ### 6.3 Text-to-Speech — `voice/TextToSpeechManager.kt`
@@ -797,7 +797,7 @@ Input: "Remind me to give Sade her book when I reach Faculty of Technology"
 | Radius | 100 metres (default, configurable per reminder in settings) |
 | Loitering delay | 0ms (trigger immediately on enter) |
 | Expiration | Never (until reminder is dismissed or deleted) |
-| Max geofences | Android limit: 100 per app. Ranti warns at 90. |
+| Max geofences | Android limit: 100 per app. Recall warns at 90. |
 | Responsiveness | 30 seconds (balance between accuracy and battery) |
 
 **On geofence trigger:**
@@ -811,7 +811,7 @@ Input: "Remind me to give Sade her book when I reach Faculty of Technology"
 **When GPS is off:**
 - Geofence monitoring pauses automatically (Android behavior)
 - When GPS is re-enabled, existing geofences resume
-- Ranti does NOT show an error — it silently waits
+- Recall does NOT show an error — it silently waits
 - If the user opens the app with GPS off and has location reminders, a subtle banner shows: "Location is off — your location reminders are paused"
 
 ---
@@ -849,7 +849,7 @@ Results from Google Places API
 
 When Rust core returns a disambiguation response, `ChatScreen` shows:
 
-1. Ranti's question as a `ChatBubble`: "I found a few places matching 'the plaza'..."
+1. Recall's question as a `ChatBubble`: "I found a few places matching 'the plaza'..."
 2. `DisambiguationSheet` bottom sheet with the options
 3. User can tap an option OR type/speak their choice
 4. If user taps: selection sent to Rust core directly
@@ -883,14 +883,14 @@ User: "Remind me to take my umbrella when I leave my hostel"
   ├─ If nickname "my hostel" exists → resolve to saved location → create reminder
   │
   ├─ If nickname "my hostel" does NOT exist:
-  │    └─ Ranti responds: "Where is your hostel? Give me the name so I can find it."
+  │    └─ Recall responds: "Where is your hostel? Give me the name so I can find it."
   │         │
   │         User: "Adekunle Fajuyi Hall of Residence"
   │         │
   │         ├─ Location Resolver finds the place
   │         ├─ Saves nickname: "my hostel" → { place_name, lat, lng, place_id }
   │         ├─ Creates the original reminder
-  │         └─ Ranti: "Got it — I've saved 'my hostel' as Adekunle Fajuyi Hall of Residence.
+  │         └─ Recall: "Got it — I've saved 'my hostel' as Adekunle Fajuyi Hall of Residence.
   │                    I'll remind you to take your umbrella when you leave there."
 ```
 
@@ -946,7 +946,7 @@ CREATE TABLE nicknames (
 | Active list | `ReminderCard` for each pending one-shot reminder, sorted by `next_fire_at` ascending |
 | Recurring list | `ReminderCard` for each recurring reminder, with `RecurrencePill` ("Every Tue · 6:50 PM"), sorted alphabetically |
 | History list | `ReminderCard` for each fired/dismissed/expired reminder, sorted by `fired_at` descending |
-| Empty state (active) | "No reminders right now. Tap + or say 'Hi Ranti' to add one." |
+| Empty state (active) | "No reminders right now. Tap + or say 'Hi Recall' to add one." |
 | Empty state (recurring) | "No recurring reminders. Set one up for things that happen on a schedule." |
 | Empty state (history) | "No completed reminders yet." |
 | Swipe-to-delete | Swipe left on any card → red background with trash icon → deletes reminder |
@@ -1007,7 +1007,7 @@ The same screen handles both `new` and `edit` routes. The form is the complete i
 - Submit button: "Save Reminder" (primary, full-width, sticky to bottom)
 - On submit:
   1. Form data is serialized to JSON
-  2. Sent to Rust core via `RantiBridge.createReminderFromForm(json)` (new JNI function)
+  2. Sent to Rust core via `RecallBridge.createReminderFromForm(json)` (new JNI function)
   3. Rust core constructs the `Reminder` directly (no NLP parsing — the form supplies structured data)
   4. Persisted, scheduled, and the user is navigated back to the reminder list with a success `Toast`
 - For edit mode: form is pre-populated from existing reminder; submit calls `updateReminder`
@@ -1016,7 +1016,7 @@ The same screen handles both `new` and `edit` routes. The form is the complete i
 
 Users can also manage reminders via conversation — both ways are first-class:
 
-| User Says | Ranti Response |
+| User Says | Recall Response |
 |-----------|---------------|
 | "Cancel the Shoprite reminder" | Fuzzy-matches against active reminders → "I found 'Buy glucose biscuits when I pass Shoprite'. Delete it?" → "Yes" → deleted |
 | "What reminders do I have?" | Lists active reminders: "You have 3 reminders: 1. Call mum at 7 PM, 2. Buy eggs at Shoprite, 3. Submit assignment before 11 PM." |
@@ -1037,10 +1037,10 @@ The Rust core handles these as management intents (`DeleteReminder`, `ListRemind
 
 | Aspect | Detail |
 |--------|--------|
-| Channel | "Ranti Reminders" — importance: HIGH (heads-up notification) |
-| Title | "Ranti" |
+| Channel | "Recall Reminders" — importance: HIGH (heads-up notification) |
+| Title | "Recall" |
 | Body | Reminder body text verbatim (e.g. "Check the pot") |
-| Icon | Ranti logo (small icon), reminder type icon (large icon: clock or map pin) |
+| Icon | Recall logo (small icon), reminder type icon (large icon: clock or map pin) |
 | Sound | Default notification sound |
 | Vibration | Default vibration pattern |
 | Actions | "Done" (dismisses + marks complete), "Snooze 10 min" (reschedules +10 min) |
@@ -1082,7 +1082,7 @@ Configurable in settings:
 
 ## 13. Milestone 10 — Settings & Preferences
 
-**Goal:** Users can configure Ranti's behavior to their preferences.
+**Goal:** Users can configure Recall's behavior to their preferences.
 
 ### 13.1 Settings Menu — `settings/SettingsScreen.kt`
 
@@ -1095,7 +1095,7 @@ Configurable in settings:
 | Saved Places | `MapPin` | `nicknames/NicknamesScreen` | Manage location nicknames |
 | Chat History | `ClockCounterClockwise` | (action) | Clear chat history (with confirmation) |
 | Theme | `Moon` / `Sun` | (toggle) | Light / Dark / System |
-| About Ranti | `Info` | `AboutScreen` | Version, licenses |
+| About Recall | `Info` | `AboutScreen` | Version, licenses |
 
 ### 13.2 Wake Word Settings — `settings/WakeWordSettingsScreen.kt`
 
@@ -1110,7 +1110,7 @@ Configurable in settings:
 
 | Element | Detail |
 |---------|--------|
-| TTS enabled | `Toggle` — enable/disable Ranti speaking responses |
+| TTS enabled | `Toggle` — enable/disable Recall speaking responses |
 | TTS speed | Slider: 0.75x / 1.0x / 1.25x |
 | Speech language | Picker: English (Nigeria) / English (US) / English (UK) |
 
@@ -1141,7 +1141,7 @@ Configurable in settings:
 | Version | App version + build number |
 | Backend | "Powered by Cloudflare Workers" |
 | Open-source licenses | Link to licenses list |
-| Privacy note | "Ranti processes your voice on-device. Your reminders sync with your personal Cloudflare Worker." |
+| Privacy note | "Recall processes your voice on-device. Your reminders sync with your personal Cloudflare Worker." |
 
 ---
 
@@ -1153,12 +1153,12 @@ Configurable in settings:
 
 | File | Role | Key Exports |
 |------|------|-------------|
-| `src/index.ts` | Hono router — Worker entry point. Registers `/chat`, `/reminders`, `/nicknames`, `/health`. Exports `RantiAgent` so Cloudflare wires the Durable Object. | `default` (Hono app), `RantiAgent`, `Env` |
-| `src/agent.ts` | `RantiAgent` Durable Object. Holds per-device conversation history in DO storage. Runs the Workers AI tool-use loop. Normalises tool-call shapes across Workers AI runtime variants. | `RantiAgent extends Agent<Env, AgentState>` |
+| `src/index.ts` | Hono router — Worker entry point. Registers `/chat`, `/reminders`, `/nicknames`, `/health`. Exports `RecallAgent` so Cloudflare wires the Durable Object. | `default` (Hono app), `RecallAgent`, `Env` |
+| `src/agent.ts` | `RecallAgent` Durable Object. Holds per-device conversation history in DO storage. Runs the Workers AI tool-use loop. Normalises tool-call shapes across Workers AI runtime variants. | `RecallAgent extends Agent<Env, AgentState>` |
 | `src/tools/reminders.ts` | Reminder tool handlers and JSON schemas (`create_reminder`, `list_reminders`, `delete_reminder`, `update_reminder`, `pause_reminder`, `resume_reminder`, `resolve_time`). Single source of truth for reminder business logic — shared by the agent loop and the REST route handlers. | `reminderTools[]`, `dispatchReminderTool()`, `HandlerContext` |
 | `src/lib/time.ts` | Pure, zero-I/O timezone-aware time and recurrence parser. All parsing happens in the user's IANA zone (default `Africa/Lagos`), then converts to UTC for storage. | `parseTimeExpression()`, `parseRecurrence()`, `nextOccurrence()` |
 | `src/lib/types.ts` | Shared TypeScript types. Language-agnostic — a future Rust port maps 1:1. | `Reminder`, `Trigger`, `RecurrenceRule`, `ChatMessage`, `Nickname`, `ReminderStatus` |
-| `src/lib/auth.ts` | Anonymous device-bound auth. Extracts `X-Ranti-Device` from request headers; upserts `devices` row on every request. | `getDeviceId()`, `touchDevice()`, `MissingDeviceError` |
+| `src/lib/auth.ts` | Anonymous device-bound auth. Extracts `X-Recall-Device` from request headers; upserts `devices` row on every request. | `getDeviceId()`, `touchDevice()`, `MissingDeviceError` |
 | `src/routes/reminders.ts` | Hono sub-router for REST reminder CRUD. Delegates to `tools/reminders.ts` handlers — no duplicated logic. | `reminders` (Hono router) |
 | `src/routes/nicknames.ts` | Hono sub-router for nickname CRUD. | `nicknames` (Hono router) |
 | `src/routes/health.ts` | Liveness probe — returns `{ ok: true }`. | `health` (Hono router) |
@@ -1171,7 +1171,7 @@ Configurable in settings:
 │  Idle   │ ← Waiting for next HTTP POST /chat
 └────┬────┘
      │ { message, tz, input_mode }
-     │ deviceId from X-Ranti-Device header
+     │ deviceId from X-Recall-Device header
      ▼
 ┌─────────────────────────────────┐
 │  Load DO state                  │
@@ -1216,19 +1216,19 @@ Key properties:
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | `GET` | `/health` | None | Liveness probe |
-| `POST` | `/chat` | `X-Ranti-Device` | Run one agent turn. Body: `{ message, tz?, input_mode?, client_now? }`. Response: `{ response_text, action, reminder?, reminders?, disambiguation }` |
-| `GET` | `/reminders` | `X-Ranti-Device` | List reminders. Query: `filter=active\|recurring\|history` |
-| `POST` | `/reminders` | `X-Ranti-Device` | Create reminder from manual form (no LLM). Body same shape as `create_reminder` tool input |
-| `PATCH` | `/reminders/:id` | `X-Ranti-Device` | Update reminder fields |
-| `DELETE` | `/reminders/:id` | `X-Ranti-Device` | Delete reminder |
-| `POST` | `/reminders/:id/pause` | `X-Ranti-Device` | Pause recurring reminder |
-| `POST` | `/reminders/:id/resume` | `X-Ranti-Device` | Resume paused reminder |
-| `POST` | `/reminders/:id/snooze` | `X-Ranti-Device` | Snooze reminder. Body: `{ snooze_minutes }` |
-| `GET` | `/nicknames` | `X-Ranti-Device` | List location nicknames |
-| `POST` | `/nicknames` | `X-Ranti-Device` | Save / update nickname |
-| `DELETE` | `/nicknames/:id` | `X-Ranti-Device` | Delete nickname |
+| `POST` | `/chat` | `X-Recall-Device` | Run one agent turn. Body: `{ message, tz?, input_mode?, client_now? }`. Response: `{ response_text, action, reminder?, reminders?, disambiguation }` |
+| `GET` | `/reminders` | `X-Recall-Device` | List reminders. Query: `filter=active\|recurring\|history` |
+| `POST` | `/reminders` | `X-Recall-Device` | Create reminder from manual form (no LLM). Body same shape as `create_reminder` tool input |
+| `PATCH` | `/reminders/:id` | `X-Recall-Device` | Update reminder fields |
+| `DELETE` | `/reminders/:id` | `X-Recall-Device` | Delete reminder |
+| `POST` | `/reminders/:id/pause` | `X-Recall-Device` | Pause recurring reminder |
+| `POST` | `/reminders/:id/resume` | `X-Recall-Device` | Resume paused reminder |
+| `POST` | `/reminders/:id/snooze` | `X-Recall-Device` | Snooze reminder. Body: `{ snooze_minutes }` |
+| `GET` | `/nicknames` | `X-Recall-Device` | List location nicknames |
+| `POST` | `/nicknames` | `X-Recall-Device` | Save / update nickname |
+| `DELETE` | `/nicknames/:id` | `X-Recall-Device` | Delete nickname |
 
-Auth: `X-Ranti-Device` is a per-install UUID generated client-side on first launch, persisted in Android DataStore, and sent on every request. The Worker upserts a `devices` row on every request via `touchDevice()`. No secrets, no user accounts in the MVP.
+Auth: `X-Recall-Device` is a per-install UUID generated client-side on first launch, persisted in Android DataStore, and sent on every request. The Worker upserts a `devices` row on every request via `touchDevice()`. No secrets, no user accounts in the MVP.
 
 ### 14.4 D1 Schema Overview
 
@@ -1238,7 +1238,7 @@ Four tables — see `src/db/migrations/0001_init.sql`. New migrations use sequen
 |-------|---------|-------------|
 | `devices` | Tracks every install that has called the worker. | `id` (UUID, PK), `first_seen_at`, `last_seen_at` |
 | `reminders` | System of record for all reminders. | `id`, `device_id` (FK→devices), `body`, `trigger_type` (`time`\|`location`), `trigger_data` (JSON), `recurrence_data` (JSON, nullable), `status`, `source`, `next_fire_at`, `snoozed_until` |
-| `messages` | Persisted conversation turns. | `id`, `device_id`, `sender` (`user`\|`ranti`), `text`, `timestamp`, `related_reminder_id`, `input_mode` |
+| `messages` | Persisted conversation turns. | `id`, `device_id`, `sender` (`user`\|`recall`), `text`, `timestamp`, `related_reminder_id`, `input_mode` |
 | `nicknames` | User-defined location aliases. | `id`, `device_id`, `nickname`, `place_name`, `place_id`, `lat`, `lng` — UNIQUE on `(device_id, nickname)` |
 
 Indices: `idx_reminders_device`, `idx_reminders_status`, `idx_reminders_next_fire`, `idx_messages_device_time`.
@@ -1247,7 +1247,7 @@ Indices: `idx_reminders_device`, `idx_reminders_status`, `idx_reminders_next_fir
 
 ## 15. Data Models
 
-> **Status: ✅ Done.** TypeScript types live in `worker/src/lib/types.ts`, typed D1 query helpers in `worker/src/db/queries.ts`, and Kotlin DTOs in `app/src/main/java/com/ranti/network/ApiModels.kt`. The D1 schema is in `worker/src/db/migrations/0001_init.sql`. All tool handlers (`reminders.ts`, `nicknames.ts`) and `auth.ts` delegate to `queries.ts` — no inline SQL in business-logic modules.
+> **Status: ✅ Done.** TypeScript types live in `worker/src/lib/types.ts`, typed D1 query helpers in `worker/src/db/queries.ts`, and Kotlin DTOs in `app/src/main/java/com/recall/network/ApiModels.kt`. The D1 schema is in `worker/src/db/migrations/0001_init.sql`. All tool handlers (`reminders.ts`, `nicknames.ts`) and `auth.ts` delegate to `queries.ts` — no inline SQL in business-logic modules.
 
 ### 15.1 Reminder
 
@@ -1255,7 +1255,7 @@ Indices: `idx_reminders_device`, `idx_reminders_status`, `idx_reminders_next_fir
 // worker/src/lib/types.ts
 
 type ReminderId = string;  // UUID v4
-type DeviceId = string;    // per-install UUID from X-Ranti-Device
+type DeviceId = string;    // per-install UUID from X-Recall-Device
 type IsoTimestamp = string; // ISO 8601, always UTC
 
 type ReminderStatus =
@@ -1322,7 +1322,7 @@ interface Reminder {
 interface ChatMessage {
   id: string;                               // UUID v4
   device_id: DeviceId;
-  sender: "user" | "ranti";
+  sender: "user" | "recall";
   text: string;
   timestamp: IsoTimestamp;
   related_reminder_id: ReminderId | null;   // If this message created/modified a reminder
@@ -1348,7 +1348,7 @@ interface Nickname {
 
 ### 15.4 Conversation Context
 
-Conversation context (chat history, pending disambiguation state) is held per-user in the `RantiAgent` Durable Object via `this.setState({ history })`. There is no D1 table for it — DO storage provides the same single-threaded, per-device isolation with zero race conditions on multi-turn flows.
+Conversation context (chat history, pending disambiguation state) is held per-user in the `RecallAgent` Durable Object via `this.setState({ history })`. There is no D1 table for it — DO storage provides the same single-threaded, per-device isolation with zero race conditions on multi-turn flows.
 
 ```typescript
 // worker/src/agent.ts — stored in Durable Object state
@@ -1364,7 +1364,7 @@ Four tables — see `worker/src/db/migrations/0001_init.sql`. New migrations use
 ```sql
 -- Devices — tracks every install that has called the worker
 CREATE TABLE IF NOT EXISTS devices (
-    id              TEXT PRIMARY KEY,     -- per-install UUID from X-Ranti-Device
+    id              TEXT PRIMARY KEY,     -- per-install UUID from X-Recall-Device
     first_seen_at   TEXT NOT NULL,
     last_seen_at    TEXT NOT NULL
 );
@@ -1394,7 +1394,7 @@ CREATE INDEX IF NOT EXISTS idx_reminders_next_fire ON reminders(next_fire_at);
 CREATE TABLE IF NOT EXISTS messages (
     id                  TEXT PRIMARY KEY,
     device_id           TEXT NOT NULL REFERENCES devices(id),
-    sender              TEXT NOT NULL CHECK (sender IN ('user', 'ranti')),
+    sender              TEXT NOT NULL CHECK (sender IN ('user', 'recall')),
     text                TEXT NOT NULL,
     timestamp           TEXT NOT NULL,
     related_reminder_id TEXT REFERENCES reminders(id),
@@ -1464,7 +1464,7 @@ The agent has 10 tools, grouped by domain. Each tool has a name, description, an
 All tools share these properties:
 - **Schemas** are in Anthropic tool_use format with Zod runtime validation.
 - **Execution** happens via `dispatchReminderTool()`, `dispatchNicknameTool()`, or `handleResolvePlace()` in the agent loop.
-- **State** is scoped to the device via the `deviceId` from the `X-Ranti-Device` header.
+- **State** is scoped to the device via the `deviceId` from the `X-Recall-Device` header.
 
 ### 16.2 Intent Resolution via Tool Calling
 
@@ -1497,7 +1497,7 @@ The system prompt in `agent.ts` encodes the intent-resolution policy. Key rules:
 | **Nickname flow** | When the user mentions a personal place ("my hostel"), call `get_nicknames` first. If found, skip `resolve_place`. If not found, resolve → create → offer to save nickname. |
 | **Recurrence detection** | "Every \<something\>" is recurring. Pass the whole phrase as `time_expr` — the backend's recurrence parser decides whether it's daily, weekly, or monthly. |
 | **Concise replies** | 1–2 sentences max. Confirm the specific time, place, or recurrence back to the user. |
-| **Context** | System prompt includes the user's timezone (`X-Ranti-Tz`), current local time, and input mode (`text`/`voice`). |
+| **Context** | System prompt includes the user's timezone (`X-Recall-Tz`), current local time, and input mode (`text`/`voice`). |
 
 ### 16.4 Body & Time Extraction
 
@@ -1557,7 +1557,7 @@ For ambiguous matches, the LLM can call `list_reminders` first, present the opti
 
 | Scenario | Behavior |
 |----------|----------|
-| No internet + text input | Fails gracefully ("Ranti needs an internet connection to think. Please check your network."). The LLM agent runs on Cloudflare Workers. |
+| No internet + text input | Fails gracefully ("Recall needs an internet connection to think. Please check your network."). The LLM agent runs on Cloudflare Workers. |
 | No internet + voice input | Wake word triggers (Vosk is fully offline) and orb activates, but dictation/parsing fails without network. |
 | No internet + location query | Google Places API unavailable. Requests fail gracefully. |
 | No internet + notification fire | Works fully — alarms and geofences are handled by Android OS (`AlarmManager` / Play Services) and don't require network to trigger. |
@@ -1566,7 +1566,7 @@ For ambiguous matches, the LLM can call `list_reminders` first, present the opti
 
 | Aspect | Detail |
 |--------|--------|
-| Voice processing | Speech-to-text via Android's `SpeechRecognizer` (may use Google servers). No raw audio is stored by Ranti. |
+| Voice processing | Speech-to-text via Android's `SpeechRecognizer` (may use Google servers). No raw audio is stored by Recall. |
 | Reminder storage | All reminders, messages, and nicknames are stored securely in Cloudflare D1. The Android app fetches state from the API. Future milestones will introduce a local cache. |
 | Location data | Current location used only for Google Places bias and geofence registration. Not tracked or stored continuously. |
 | Wake word | Vosk runs 100% on-device. No audio leaves the device for wake word detection. |
@@ -1597,7 +1597,7 @@ For ambiguous matches, the LLM can call `list_reminders` first, present the opti
 | Aspect | Detail |
 |--------|--------|
 | Package | `com.alphacephei:vosk-android:0.3.75` |
-| Keyword | Grammar-mode recognizer: `["hi ranti", "hey ranti", "[unk]"]` |
+| Keyword | Grammar-mode recognizer: `["hi recall", "hey recall", "[unk]"]` |
 | Sensitivity | 0.3–0.7 (configurable) |
 | Model | `vosk-model-small-en-us-0.15` (~40 MB) bundled in `assets/model-en-us/` |
 | Runtime | Runs in `WakeWordService` foreground service via `VoskWakeWordEngine` |
@@ -1679,7 +1679,7 @@ Total: **17 routes** across 5 screen groups + 4 background services.
 | 14 | `settings/voice` | Voice & Speech Settings | `VoiceSettingsScreen` |
 | 15 | `settings/notifications` | Notification Settings | `NotificationSettingsScreen` |
 | 16 | `settings/location` | Location Settings | `LocationSettingsScreen` |
-| 17 | `settings/about` | About Ranti | `AboutScreen` |
+| 17 | `settings/about` | About Recall | `AboutScreen` |
 
 ### Background Services (not screens, but user-visible)
 

@@ -48,7 +48,7 @@ export interface NicknameRow {
 export interface MessageRow {
   id: string;
   device_id: string;
-  sender: "user" | "ranti";
+  sender: "user" | "recall";
   text: string;
   timestamp: string;
   related_reminder_id: string | null;
@@ -382,7 +382,7 @@ export async function deleteNickname(
 export interface InsertMessageParams {
   id: string;
   deviceId: DeviceId;
-  sender: "user" | "ranti";
+  sender: "user" | "recall";
   text: string;
   timestamp: IsoTimestamp;
   relatedReminderId: string | null;

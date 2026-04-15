@@ -17,5 +17,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Ranti"
+rootProject.name = "Recall"
 include(":app")

@@ -1,8 +1,8 @@
--- Ranti — initial D1 schema. Mirrors SPEC §15.5 with the addition of a `devices` table
+-- Recall — initial D1 schema. Mirrors SPEC §15.5 with the addition of a `devices` table
 -- (the v1.0 spec stored data per-device on the phone; we now store per-device in D1).
 
 CREATE TABLE IF NOT EXISTS devices (
-    id              TEXT PRIMARY KEY,         -- per-install UUID from X-Ranti-Device
+    id              TEXT PRIMARY KEY,         -- per-install UUID from X-Recall-Device
     first_seen_at   TEXT NOT NULL,
     last_seen_at    TEXT NOT NULL
 );
@@ -30,7 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_reminders_next_fire ON reminders(next_fire_at);
 CREATE TABLE IF NOT EXISTS messages (
     id                  TEXT PRIMARY KEY,
     device_id           TEXT NOT NULL REFERENCES devices(id),
-    sender              TEXT NOT NULL CHECK (sender IN ('user', 'ranti')),
+    sender              TEXT NOT NULL CHECK (sender IN ('user', 'recall')),
     text                TEXT NOT NULL,
     timestamp           TEXT NOT NULL,
     related_reminder_id TEXT REFERENCES reminders(id),

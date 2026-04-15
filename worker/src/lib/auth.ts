@@ -4,7 +4,7 @@ import { touchDevice as touchDeviceQuery } from "../db/queries";
 
 export class MissingDeviceError extends Error {
   constructor() {
-    super("Missing X-Ranti-Device header");
+    super("Missing X-Recall-Device header");
   }
 }
 
@@ -14,7 +14,7 @@ export class MissingDeviceError extends Error {
  * persisted in DataStore, sent on every request.
  */
 export function getDeviceId(c: Context): DeviceId {
-  const id = c.req.header("X-Ranti-Device");
+  const id = c.req.header("X-Recall-Device");
   if (!id || id.length < 8) throw new MissingDeviceError();
   return id;
 }

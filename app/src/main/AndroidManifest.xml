@@ -23,20 +23,20 @@
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
-        android:name=".RantiApp"
+        android:name=".RecallApp"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
-        android:label="Ranti"
+        android:label="Recall"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Ranti">
+        android:theme="@style/Theme.Recall">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Ranti">
+            android:theme="@style/Theme.Recall">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -68,7 +68,7 @@
             android:enabled="true"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.ranti.action.FIRE_REMINDER" />
+                <action android:name="com.recall.action.FIRE_REMINDER" />
             </intent-filter>
         </receiver>
 
@@ -88,8 +88,8 @@
             android:enabled="true"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.ranti.action.REMINDER_DONE" />
-                <action android:name="com.ranti.action.REMINDER_SNOOZE" />
+                <action android:name="com.recall.action.REMINDER_DONE" />
+                <action android:name="com.recall.action.REMINDER_SNOOZE" />
             </intent-filter>
         </receiver>
     </application>

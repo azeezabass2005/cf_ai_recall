@@ -18,7 +18,7 @@ import {
 } from "../tools/reminders";
 
 function buildCtx(c: { env: { DB: D1Database }; req: { header: (name: string) => string | undefined } }, deviceId: string): HandlerContext {
-  const tz = c.req.header("X-Ranti-Tz") || "Africa/Lagos";
+  const tz = c.req.header("X-Recall-Tz") || "Africa/Lagos";
   return {
     db: c.env.DB,
     deviceId,

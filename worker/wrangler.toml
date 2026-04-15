@@ -1,23 +1,23 @@
-name = "ranti-worker"
+name = "recall-worker"
 main = "src/index.ts"
 compatibility_date = "2026-04-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Durable Object — one instance per device, holds the agent's conversation state.
 [[durable_objects.bindings]]
-name = "RANTI_AGENT"
-class_name = "RantiAgent"
+name = "RECALL_AGENT"
+class_name = "RecallAgent"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["RantiAgent"]
+new_sqlite_classes = ["RecallAgent"]
 
 # D1 — persistent storage for reminders, nicknames, messages, devices.
-# Create with: wrangler d1 create ranti-db
+# Create with: wrangler d1 create recall-db
 # Then paste the resulting database_id below.
 [[d1_databases]]
 binding = "DB"
-database_name = "ranti-db"
+database_name = "recall-db"
 database_id = "24ba759b-c15f-4925-bef6-182521b6ec52"
 migrations_dir = "src/db/migrations"
 

@@ -18,7 +18,7 @@ import {
 } from "./tools/places";
 
 /**
- * RantiAgent — one Durable Object per device id.
+ * RecallAgent — one Durable Object per device id.
  *
  * Backed by **Cloudflare Workers AI** (Llama 3.3 70B instruct, fast variant).
  * Runs a tool-use loop with reminder, nickname, and place-resolution tools.
@@ -141,7 +141,7 @@ const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 const REMINDER_TOOL_NAMES: Set<string> = new Set(reminderTools.map((t) => t.name));
 const NICKNAME_TOOL_NAMES: Set<string> = new Set(nicknameTools.map((t) => t.name));
 
-const SYSTEM_PROMPT = `You are Ranti, a voice-first reminder assistant built for Nigerians. Your job is to help the user remember things — at specific times, on recurring schedules, or when they arrive at a place.
+const SYSTEM_PROMPT = `You are Recall, a voice-first reminder assistant built for Nigerians. Your job is to help the user remember things — at specific times, on recurring schedules, or when they arrive at a place.
 
 Personality:
 - Warm, concise, and natural. Write the way a Nigerian friend would speak. One or two sentences.
@@ -243,7 +243,7 @@ function toWorkersAiTools(): AiFunctionTool[] {
   }));
 }
 
-export class RantiAgent extends Agent<Env, AgentState> {
+export class RecallAgent extends Agent<Env, AgentState> {
   override initialState: AgentState = { history: [] };
 
   override async onRequest(request: Request): Promise<Response> {
@@ -256,7 +256,7 @@ export class RantiAgent extends Agent<Env, AgentState> {
       return Response.json({ error: "Missing 'message' in body" }, { status: 400 });
     }
 
-    const deviceId = request.headers.get("X-Ranti-Device") ?? this.name;
+    const deviceId = request.headers.get("X-Recall-Device") ?? this.name;
     const tz = body.tz || "Africa/Lagos";
     const source = body.input_mode === "voice" ? "voice" : "chat_text";
 

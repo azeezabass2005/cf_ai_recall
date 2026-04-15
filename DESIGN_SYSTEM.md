@@ -1,6 +1,6 @@
-# Ranti Design System
+# Recall Design System
 
-Comprehensive guide to Ranti's visual language, design tokens, and component library. This document is the single source of truth for building consistent, high-quality screens across the app.
+Comprehensive guide to Recall's visual language, design tokens, and component library. This document is the single source of truth for building consistent, high-quality screens across the app.
 
 ---
 
@@ -39,7 +39,7 @@ Comprehensive guide to Ranti's visual language, design tokens, and component lib
 
 ## Design Philosophy
 
-Ranti is a **calm, invisible assistant** that only demands attention when it matters. The design language reflects this: soft, breathable, and warm. Nothing screams. Nothing competes for your eye. The interface stays out of the way until a reminder is due, then it speaks clearly and leaves.
+Recall is a **calm, invisible assistant** that only demands attention when it matters. The design language reflects this: soft, breathable, and warm. Nothing screams. Nothing competes for your eye. The interface stays out of the way until a reminder is due, then it speaks clearly and leaves.
 
 **Three design principles:**
 
@@ -76,7 +76,7 @@ All color values are defined in `core/design/tokens.kt` (Kotlin) and mirrored in
 
 ### Brand: Indigo (Primary)
 
-Ranti's primary brand color. Used for the voice orb, primary actions, and active states.
+Recall's primary brand color. Used for the voice orb, primary actions, and active states.
 
 | Token | Value | Usage |
 |-------|-------|-------|
@@ -150,7 +150,7 @@ Used sparingly for active/listening states, highlights, and premium touches.
 | `h1` | 28px | 36px | Bold | Screen titles |
 | `h2` | 24px | 32px | Bold | Section headers |
 | `h3` | 20px | 28px | SemiBold | Card titles, dialog headers |
-| `body-lg` | 18px | 28px | Regular | Chat bubble (Ranti's replies) |
+| `body-lg` | 18px | 28px | Regular | Chat bubble (Recall's replies) |
 | `body-md` | 16px | 24px | Regular | Default body text, user input |
 | `body-sm` | 14px | 22px | Regular | Secondary text, reminder details |
 | `caption` | 12px | 18px | Medium | Timestamps, trigger labels, pill text |
@@ -209,7 +209,7 @@ Rounded, approachable corners throughout. The conversational aesthetic demands s
 
 ## Iconography
 
-Ranti uses **Phosphor Icons** (regular weight, 24px default) for a friendly, rounded icon style that matches the conversational tone.
+Recall uses **Phosphor Icons** (regular weight, 24px default) for a friendly, rounded icon style that matches the conversational tone.
 
 | Context | Icon | Size |
 |---------|------|------|
@@ -235,7 +235,7 @@ The app supports **light** and **dark** modes.
 
 ### How it works (Android / Kotlin)
 
-1. `RantiTheme` composable wraps the entire app, providing `MaterialTheme` with Ranti's custom `ColorScheme` and `Typography`.
+1. `RecallTheme` composable wraps the entire app, providing `MaterialTheme` with Recall's custom `ColorScheme` and `Typography`.
 2. Theme state follows system preference by default, with manual override stored in DataStore.
 3. The Rust core does not handle theming — it operates on semantic concepts (`TimeTrigger`, `LocationTrigger`) that the Kotlin UI layer maps to the correct colors.
 
@@ -244,15 +244,15 @@ The app supports **light** and **dark** modes.
 ```kotlin
 Text(
     text = "Check the pot",
-    style = RantiTheme.typography.bodyLg,
-    color = RantiTheme.colors.textHi
+    style = RecallTheme.typography.bodyLg,
+    color = RecallTheme.colors.textHi
 )
 ```
 
 ### Accessing tokens programmatically
 
 ```kotlin
-val colors = RantiTheme.colors
+val colors = RecallTheme.colors
 // colors.base, colors.surface, colors.elevated
 // colors.textHi, colors.textMid, colors.textLo
 // colors.primary, colors.accent
@@ -266,14 +266,14 @@ val colors = RantiTheme.colors
 All components are implemented as Jetpack Compose composables under `ui/components/`.
 
 ```kotlin
-import com.ranti.ui.components.*
+import com.recall.ui.components.*
 ```
 
 ---
 
 ### Text
 
-Themed text component wrapping Material3 `Text` with Ranti's type scale and color semantics.
+Themed text component wrapping Material3 `Text` with Recall's type scale and color semantics.
 
 ```kotlin
 RText(variant = TextVariant.H2, text = "Your Reminders")
@@ -440,7 +440,7 @@ Background: `input` token. Radius: `md` (12px).
 
 ### ChatBubble
 
-Conversational message bubble for the chat-like interface between the user and Ranti.
+Conversational message bubble for the chat-like interface between the user and Recall.
 
 ```kotlin
 ChatBubble(
@@ -451,7 +451,7 @@ ChatBubble(
 
 ChatBubble(
     message = "Sure, I'll remind you at 3:42 PM.",
-    sender = BubbleSender.Ranti,
+    sender = BubbleSender.Recall,
     timestamp = "3:27 PM"
 )
 ```
@@ -459,7 +459,7 @@ ChatBubble(
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `message` | `String` | *required* | Message text |
-| `sender` | `BubbleSender` | *required* | `User` or `Ranti` |
+| `sender` | `BubbleSender` | *required* | `User` or `Recall` |
 | `timestamp` | `String?` | `null` | Time label below bubble |
 
 **Sender details:**
@@ -467,15 +467,15 @@ ChatBubble(
 | Sender | Alignment | Background | Text Color | Radius |
 |--------|-----------|-----------|------------|--------|
 | `User` | End (right) | `primary` | inverse | 20px top-left, 20px top-right, 4px bottom-right, 20px bottom-left |
-| `Ranti` | Start (left) | `surface` + `border` | `textHi` | 20px top-left, 20px top-right, 20px bottom-right, 4px bottom-left |
+| `Recall` | Start (left) | `surface` + `border` | `textHi` | 20px top-left, 20px top-right, 20px bottom-right, 4px bottom-left |
 
-Text variant: `body-md` for user, `body-lg` for Ranti. Max width: 85% of container.
+Text variant: `body-md` for user, `body-lg` for Recall. Max width: 85% of container.
 
 ---
 
 ### VoiceOrb
 
-The central voice interaction element. A pulsing circular button that represents Ranti's listening state.
+The central voice interaction element. A pulsing circular button that represents Recall's listening state.
 
 ```kotlin
 VoiceOrb(
@@ -582,7 +582,7 @@ Styling: `MapPin` icon (16px) + `caption` text, `locationTrigger` color, `locati
 
 ### DisambiguationSheet
 
-Bottom sheet that presents multiple location options when Ranti finds ambiguous matches.
+Bottom sheet that presents multiple location options when Recall finds ambiguous matches.
 
 ```kotlin
 DisambiguationSheet(
@@ -822,7 +822,7 @@ app/                           ← Kotlin Android app
     theme/
       Color.kt                ← Color definitions (light + dark)
       Type.kt                 ← Typography definitions
-      Theme.kt                ← RantiTheme composable + tokens
+      Theme.kt                ← RecallTheme composable + tokens
       Spacing.kt              ← Spacing scale
       Shape.kt                ← Border radius scale
     components/

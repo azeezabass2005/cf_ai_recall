@@ -1,4 +1,4 @@
-// Shared TypeScript types for the Ranti backend.
+// Shared TypeScript types for the Recall backend.
 // Kept language-agnostic on purpose so a future Rust port maps 1:1 (see SPEC §15).
 
 export type ReminderId = string;
@@ -76,7 +76,7 @@ export interface Nickname {
 export interface ChatMessage {
   id: string;
   device_id: DeviceId;
-  sender: "user" | "ranti";
+  sender: "user" | "recall";
   text: string;
   timestamp: IsoTimestamp;
   related_reminder_id: ReminderId | null;

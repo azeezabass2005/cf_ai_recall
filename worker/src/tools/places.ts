@@ -70,7 +70,7 @@ export async function handleResolvePlace(
   const resp = await fetch(url.toString(), {
     headers: {
       // Nominatim STRICTLY requires a unique User-Agent
-      "User-Agent": "RantiWorker/1.0 (reminder-app-bot)",
+      "User-Agent": "RecallWorker/1.0 (reminder-app-bot)",
     },
   });
 

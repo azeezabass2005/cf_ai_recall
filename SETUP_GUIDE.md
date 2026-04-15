@@ -2,7 +2,7 @@
 
 **1. Android Studio first sync**
 - Install Android Studio Koala+ if you don't have it.
-- `File → Open` → pick `/home/rustyfola/Desktop/frontend-hassle/ranti` (the repo root, not `app/`).
+- `File → Open` → pick `/home/rustyfola/Desktop/frontend-hassle/recall` (the repo root, not `app/`).
 - Let it sync. It'll auto-download the Gradle wrapper, AGP 8.5.2, Kotlin 2.0.10, and the Compose BOM.
 - If sync fails, the fix is almost always one of:
   - **AGP/Gradle mismatch** — Studio will offer "Upgrade Gradle wrapper", accept it.
@@ -11,7 +11,7 @@
 
 **2. Wrangler version warning**
 ```sh
-cd /home/rustyfola/Desktop/frontend-hassle/ranti/worker
+cd /home/rustyfola/Desktop/frontend-hassle/recall/worker
 npm install --save-dev wrangler@4
 ```
 Then in `wrangler.toml`, the `2026-04-01` compatibility date will be accepted without the fallback warning.
@@ -20,7 +20,7 @@ Then in `wrangler.toml`, the `2026-04-01` compatibility date will be accepted wi
 ```sh
 cd worker
 npx wrangler login
-npx wrangler d1 create ranti-db
+npx wrangler d1 create recall-db
 ```
 Copy the `database_id` it prints into `wrangler.toml` (replace `REPLACE_ME_AFTER_wrangler_d1_create`).
 
@@ -44,12 +44,12 @@ Look for something like `192.168.x.x` on your wifi interface. Call it `<LAN_IP>`
 
 Edit `app/build.gradle.kts`, change the `defaultConfig` line:
 ```kotlin
-buildConfigField("String", "RANTI_BASE_URL", "\"http://<LAN_IP>:8789\"")
+buildConfigField("String", "RECALL_BASE_URL", "\"http://<LAN_IP>:8789\"")
 ```
 
 **3. Start the Worker bound to all interfaces**
 ```sh
-cd /home/rustyfola/Desktop/frontend-hassle/ranti/worker
+cd /home/rustyfola/Desktop/frontend-hassle/recall/worker
 npx wrangler dev --port 8789 --ip 0.0.0.0
 ```
 Leave it running. Test from your laptop: `curl http://<LAN_IP>:8789/health` should return JSON.
@@ -73,27 +73,27 @@ Better for showing it off / not needing the laptop on.
 
 **1. Deploy the Worker**
 ```sh
-cd /home/rustyfola/Desktop/frontend-hassle/ranti/worker
+cd /home/rustyfola/Desktop/frontend-hassle/recall/worker
 npx wrangler login
-npx wrangler d1 create ranti-db
+npx wrangler d1 create recall-db
 # paste the database_id into wrangler.toml
 npm run db:migrate:remote
 npm run deploy
 ```
-Wrangler prints the deployed URL, something like `https://ranti-worker.<your-subdomain>.workers.dev`.
+Wrangler prints the deployed URL, something like `https://recall-worker.<your-subdomain>.workers.dev`.
 
 **2. Smoke test it**
 ```sh
-curl https://ranti-worker.<your-subdomain>.workers.dev/health
+curl https://recall-worker.<your-subdomain>.workers.dev/health
 ```
 
 **3. Point the release build at it**
 
-In `app/build.gradle.kts`, the `release` block already has a `RANTI_BASE_URL` — replace it with your deployed URL:
+In `app/build.gradle.kts`, the `release` block already has a `RECALL_BASE_URL` — replace it with your deployed URL:
 ```kotlin
 release {
     isMinifyEnabled = false
-    buildConfigField("String", "RANTI_BASE_URL", "\"https://ranti-worker.<your-subdomain>.workers.dev\"")
+    buildConfigField("String", "RECALL_BASE_URL", "\"https://recall-worker.<your-subdomain>.workers.dev\"")
 }
 ```
 
@@ -103,7 +103,7 @@ In Android Studio: `Build → Generate Signed App Bundle / APK → APK → relea
 
 Or from the command line:
 ```sh
-cd /home/rustyfola/Desktop/frontend-hassle/ranti
+cd /home/rustyfola/Desktop/frontend-hassle/recall
 ./gradlew assembleRelease
 ```
 The APK lands in `app/build/outputs/apk/release/`.
@@ -112,7 +112,7 @@ The APK lands in `app/build/outputs/apk/release/`.
 - Plug in the phone, then `adb install app/build/outputs/apk/release/app-release.apk`.
 - Or copy the APK to the phone (USB / Drive) and tap it — you'll need to allow "install from unknown sources" for your file manager.
 
-Open Ranti. Type a message. The Worker echoes from Cloudflare, no laptop needed.
+Open Recall. Type a message. The Worker echoes from Cloudflare, no laptop needed.
 
 ---
 

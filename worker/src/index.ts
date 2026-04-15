@@ -1,12 +1,12 @@
-// Ranti Worker — entry point.
+// Recall Worker — entry point.
 //
 // Routes:
 //   GET  /health         → liveness probe
-//   POST /chat           → forwards to the per-device RantiAgent (Durable Object)
+//   POST /chat           → forwards to the per-device RecallAgent (Durable Object)
 //   /reminders/*         → REST handlers for the manual form path
 //   /nicknames/*         → REST handlers for nickname management
 //
-// Auth: every request must carry an `X-Ranti-Device` header (anonymous
+// Auth: every request must carry an `X-Recall-Device` header (anonymous
 // per-install UUID generated client-side). See SPEC §1 "Network Bridge".
 
 import { Hono } from "hono";
@@ -16,13 +16,13 @@ import { reminders } from "./routes/reminders";
 import { nicknames } from "./routes/nicknames";
 import { places } from "./routes/places";
 import { getDeviceId, touchDevice, MissingDeviceError } from "./lib/auth";
-import { RantiAgent } from "./agent";
+import { RecallAgent } from "./agent";
 
-export { RantiAgent };
+export { RecallAgent };
 
 export interface Env {
   DB: D1Database;
-  RANTI_AGENT: AgentNamespace<RantiAgent>;
+  RECALL_AGENT: AgentNamespace<RecallAgent>;
   AI: Ai;
   GOOGLE_PLACES_API_KEY?: string;
   ENVIRONMENT: string;
@@ -50,13 +50,13 @@ app.post("/chat", async (c) => {
   const deviceId = getDeviceId(c);
   await touchDevice(c.env.DB, deviceId);
 
-  const stub = await getAgentByName<Env, RantiAgent>(c.env.RANTI_AGENT, deviceId);
+  const stub = await getAgentByName<Env, RecallAgent>(c.env.RECALL_AGENT, deviceId);
   return stub.fetch(c.req.raw);
 });
 
 app.get("/", (c) =>
   c.json({
-    service: "ranti-worker",
+    service: "recall-worker",
     docs: "see SPEC.md §1 and §14",
     endpoints: ["/health", "/chat", "/reminders", "/nicknames", "/resolve-place"],
   }),

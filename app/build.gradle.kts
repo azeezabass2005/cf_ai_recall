@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.ranti"
+    namespace = "com.recall"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.ranti"
+        applicationId = "com.recall"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
@@ -18,7 +18,7 @@ android {
 
         // Deployed Cloudflare Worker URL.
         // For local dev swap back to your LAN IP and run `wrangler dev`.
-        buildConfigField("String", "RANTI_BASE_URL", "\"https://ranti-worker.azeezabass2005.workers.dev\"")
+        buildConfigField("String", "RECALL_BASE_URL", "\"https://recall-worker.azeezabass2005.workers.dev\"")
 
         // Keep APK size manageable — PocketSphinx ships native libs for every ABI.
         ndk {
@@ -29,7 +29,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            buildConfigField("String", "RANTI_BASE_URL", "\"https://ranti-worker.azeezabass2005.workers.dev\"")
+            buildConfigField("String", "RECALL_BASE_URL", "\"https://recall-worker.azeezabass2005.workers.dev\"")
         }
     }
 
@@ -80,7 +80,7 @@ dependencies {
     // Wake word — CMU PocketSphinx offline keyword spotting (bundled local AAR).
     // The AAR lives at app/libs/pocketsphinx-android-5prealpha-release.aar and
     // ships prebuilt JNI libs for arm64-v8a, armeabi-v7a, x86, and x86_64.
-    // Acoustic model + dictionary are in assets/sync/models/; "ranti" has been
+    // Acoustic model + dictionary are in assets/sync/models/; "recall" has been
     // added to words.dic with phoneme string "R AE N T IY".
     implementation(files("libs/pocketsphinx-android-5prealpha-release.aar"))
 
